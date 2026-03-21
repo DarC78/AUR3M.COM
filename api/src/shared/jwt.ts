@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 
-type AuthTokenPayload = {
+export type AuthTokenPayload = {
   sub: string;
   email: string;
   username: string;
@@ -21,4 +21,18 @@ export function signAuthToken(payload: AuthTokenPayload): string {
     algorithm: "HS256",
     expiresIn: "7d"
   });
+}
+
+export function verifyAuthToken(token: string): AuthTokenPayload {
+  const decoded = jwt.verify(token, getJwtSecret());
+
+  if (typeof decoded === "string") {
+    throw new Error("Invalid JWT payload.");
+  }
+
+  return {
+    sub: String(decoded.sub),
+    email: String(decoded.email),
+    username: String(decoded.username)
+  };
 }
