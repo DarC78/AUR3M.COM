@@ -12,9 +12,11 @@
     "test": "echo \"No tests configured yet\""
   },
   "dependencies": {
-    "@azure/functions": "^4.6.0"
+    "@azure/functions": "^4.6.0",
+    "mssql": "^12.2.1"
   },
   "devDependencies": {
+    "@types/mssql": "^9.1.9",
     "@types/node": "^22.13.14",
     "typescript": "^5.8.2"
   }
