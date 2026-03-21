@@ -92,6 +92,38 @@ Success response:
 }
 ```
 
+### `GET /api/members`
+
+Optional query params:
+
+- `gender`
+- `age_bracket`
+- `location`
+
+Example:
+
+`GET /api/members?gender=female&age_bracket=26-35&location=London`
+
+Success response:
+
+```json
+{
+  "members": [
+    {
+      "id": "guid",
+      "username": "aurora1",
+      "alias": "Aurora",
+      "membership": "silver",
+      "current_tier": 1,
+      "gender": "female",
+      "age_bracket": "26-35",
+      "location": "London",
+      "profession": "Designer"
+    }
+  ]
+}
+```
+
 ### `GET /api/speed-rounds/upcoming`
 
 Success response:

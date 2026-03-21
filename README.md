@@ -19,6 +19,7 @@ Production base URL:
 - `POST /api/auth/signup`
 - `POST /api/auth/login`
 - `GET /api/profile`
+- `GET /api/members`
 - `GET /api/speed-rounds/upcoming`
 - `POST /api/speed-rounds/join`
 - `POST /api/speed-rounds/decision`
