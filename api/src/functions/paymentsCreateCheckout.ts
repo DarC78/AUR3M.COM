@@ -104,6 +104,7 @@ export async function paymentsCreateCheckout(
       customer: stripeCustomerId,
       mode: tierConfig.mode,
       allow_promotion_codes: true,
+      payment_method_collection: "if_required",
       line_items: [{ price: tierConfig.priceId, quantity: 1 }],
       success_url: "https://aur3m.com/dashboard?payment=success",
       cancel_url: "https://aur3m.com/dashboard?payment=cancelled",
