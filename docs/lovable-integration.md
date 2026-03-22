@@ -162,7 +162,8 @@ Success response:
       "location": "London",
       "profession": "Designer"
     }
-  ]
+  ],
+  "total_count": 1234
 }
 ```
 

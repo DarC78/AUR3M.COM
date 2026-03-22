@@ -39,28 +39,49 @@ export async function members(
       .input("age_bracket", sql.NVarChar(20), ageBracket)
       .input("location", sql.NVarChar(150), location)
       .query(`
+        ;WITH filtered_users AS (
+          SELECT
+            id,
+            username,
+            display_name AS alias,
+            membership,
+            current_tier,
+            gender,
+            age_bracket,
+            location,
+            profession,
+            created_at
+          FROM dbo.users
+          WHERE is_active = 1
+            AND (@gender IS NULL OR gender = @gender)
+            AND (@age_bracket IS NULL OR age_bracket = @age_bracket)
+            AND (@location IS NULL OR location = @location)
+        )
         SELECT TOP (100)
           id,
           username,
-          display_name AS alias,
+          alias,
           membership,
           current_tier,
           gender,
           age_bracket,
           location,
           profession
-        FROM dbo.users
-        WHERE is_active = 1
-          AND (@gender IS NULL OR gender = @gender)
-          AND (@age_bracket IS NULL OR age_bracket = @age_bracket)
-          AND (@location IS NULL OR location = @location)
+        FROM filtered_users
         ORDER BY created_at DESC;
+
+        SELECT COUNT(*) AS total_count
+        FROM filtered_users;
       `);
+
+    const recordsets = result.recordsets as Array<Array<{ total_count?: number }>>;
+    const totalCountResult = recordsets[1]?.[0] as { total_count: number } | undefined;
 
     return {
       status: 200,
       jsonBody: {
-        members: result.recordset
+        members: result.recordset,
+        total_count: totalCountResult?.total_count ?? result.recordset.length
       }
     };
   } catch (error) {
