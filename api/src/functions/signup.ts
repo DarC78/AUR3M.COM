@@ -97,6 +97,7 @@ export async function signup(
       .input("interested_in", sql.NVarChar(20), body.interested_in)
       .input("membership", sql.NVarChar(20), "free")
       .input("current_tier", sql.Int, 0)
+      .input("is_test_member", sql.Bit, false)
       .query(`
         INSERT INTO dbo.users (
           email,
@@ -109,7 +110,8 @@ export async function signup(
           profession,
           interested_in,
           membership,
-          current_tier
+          current_tier,
+          is_test_member
         )
         OUTPUT
           INSERTED.id,
@@ -130,7 +132,8 @@ export async function signup(
           @profession,
           @interested_in,
           @membership,
-          @current_tier
+          @current_tier,
+          @is_test_member
         );
       `);
 

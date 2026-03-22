@@ -662,7 +662,8 @@ INSERT INTO dbo.users (
     profession,
     interested_in,
     membership,
-    current_tier
+    current_tier,
+    is_test_member
 )
 SELECT
     s.email,
@@ -678,7 +679,8 @@ SELECT
     s.profession,
     s.interested_in,
     s.membership,
-    s.current_tier
+    s.current_tier,
+    1
 FROM seed_source s
 WHERE s.locality_seq <= s.profile_count
   AND NOT EXISTS (
