@@ -1,8 +1,8 @@
 import sql from "mssql";
 import { getDbPool } from "./db";
 import { enqueueUpcomingCallReminderEmail, sendFollowUpCallScheduledEmail, sendNoCommonAvailabilityEmail } from "./email";
+import { convertLocalSlotToUtc } from "./timezones";
 import {
-  getScheduledAtForSlot,
   getSessionRelationshipContext,
   updateRelationshipStage
 } from "./speedRoundFollowUp";
@@ -104,29 +104,44 @@ export async function matchSlotsForSession(sessionId: string): Promise<MatchSlot
     .input("user_a_id", sql.UniqueIdentifier, context.participantAUserId)
     .input("user_b_id", sql.UniqueIdentifier, context.participantBUserId)
     .query(`
-      SELECT TOP 1
-        a.slot_date,
-        a.period
+      SELECT
+        a.slot_date AS slot_date_a,
+        a.period AS period_a,
+        ua.timezone AS timezone_a,
+        b.slot_date AS slot_date_b,
+        b.period AS period_b,
+        ub.timezone AS timezone_b
       FROM dbo.speed_round_availability a
-      INNER JOIN dbo.speed_round_availability b
-        ON b.session_id = a.session_id
-       AND b.slot_date = a.slot_date
-       AND b.period = a.period
+      INNER JOIN dbo.users ua
+        ON ua.id = a.user_id
+      CROSS JOIN (
+        dbo.speed_round_availability b
+        INNER JOIN dbo.users ub
+          ON ub.id = b.user_id
+      )
       WHERE a.session_id = @session_id
+        AND b.session_id = @session_id
         AND a.user_id = @user_a_id
         AND b.user_id = @user_b_id
-      ORDER BY
-        a.slot_date ASC,
-        CASE a.period
-          WHEN 'morning' THEN 1
-          WHEN 'afternoon' THEN 2
-          ELSE 3
-        END ASC;
+        AND a.slot_date BETWEEN DATEADD(DAY, -1, b.slot_date) AND DATEADD(DAY, 1, b.slot_date);
     `);
 
-  const overlap = overlapResult.recordset[0] as
-    | { slot_date: Date; period: "morning" | "afternoon" | "evening" }
-    | undefined;
+  const overlappingSlots = (overlapResult.recordset as Array<{
+    slot_date_a: Date;
+    period_a: "morning" | "afternoon" | "evening";
+    timezone_a: string;
+    slot_date_b: Date;
+    period_b: "morning" | "afternoon" | "evening";
+    timezone_b: string;
+  }>)
+    .map((row) => ({
+      scheduledAtA: convertLocalSlotToUtc(row.slot_date_a.toISOString().slice(0, 10), row.period_a, row.timezone_a),
+      scheduledAtB: convertLocalSlotToUtc(row.slot_date_b.toISOString().slice(0, 10), row.period_b, row.timezone_b)
+    }))
+    .filter((row) => row.scheduledAtA.getTime() === row.scheduledAtB.getTime())
+    .sort((left, right) => left.scheduledAtA.getTime() - right.scheduledAtA.getTime());
+
+  const overlap = overlappingSlots[0];
 
   if (!overlap) {
     await sendNoCommonAvailabilityEmail(context.participantAEmail, context.participantBAlias);
@@ -134,17 +149,57 @@ export async function matchSlotsForSession(sessionId: string): Promise<MatchSlot
     return { status: "no_common_slots" };
   }
 
-  const date = overlap.slot_date.toISOString().slice(0, 10);
-  const scheduledAt = getScheduledAtForSlot(date, overlap.period);
-  const roomName = `sr-followup-${sessionId.slice(0, 8)}`;
+  const scheduledAt = overlap.scheduledAtA;
+  const nextTier = context.sessionTier === "3min" ? "15min" : context.sessionTier === "15min" ? "60min" : "date";
+  const durationMinutes = nextTier === "15min" ? 15 : nextTier === "60min" ? 60 : 120;
+  const roomName = `sr-followup-${sessionId.slice(0, 8)}-${nextTier}`;
+
+  const followUpSessionResult = await pool.request()
+    .input("event_id", sql.UniqueIdentifier, null)
+    .input("participant_a_id", sql.UniqueIdentifier, context.participantAId)
+    .input("participant_b_id", sql.UniqueIdentifier, context.participantBId)
+    .input("room_name", sql.NVarChar(100), roomName)
+    .input("status", sql.NVarChar(20), "matched")
+    .input("session_tier", sql.NVarChar(10), nextTier)
+    .input("duration_seconds", sql.Int, durationMinutes * 60)
+    .input("scheduled_at", sql.DateTime2, scheduledAt)
+    .input("parent_session_id", sql.UniqueIdentifier, sessionId)
+    .query(`
+      INSERT INTO dbo.speed_round_sessions (
+        event_id,
+        participant_a_id,
+        participant_b_id,
+        room_name,
+        status,
+        session_tier,
+        duration_seconds,
+        scheduled_at,
+        parent_session_id
+      )
+      OUTPUT INSERTED.id
+      VALUES (
+        @event_id,
+        @participant_a_id,
+        @participant_b_id,
+        @room_name,
+        @status,
+        @session_tier,
+        @duration_seconds,
+        @scheduled_at,
+        @parent_session_id
+      );
+    `);
+
+  const followUpSessionId = (followUpSessionResult.recordset[0] as { id: string }).id;
 
   const scheduledCallResult = await pool.request()
     .input("relationship_id", sql.UniqueIdentifier, context.relationshipId)
-    .input("session_id", sql.UniqueIdentifier, sessionId)
+    .input("session_id", sql.UniqueIdentifier, followUpSessionId)
     .input("user_a_id", sql.UniqueIdentifier, context.participantAUserId)
     .input("user_b_id", sql.UniqueIdentifier, context.participantBUserId)
     .input("scheduled_at", sql.DateTime2, scheduledAt)
-    .input("duration_minutes", sql.Int, 15)
+    .input("duration_minutes", sql.Int, durationMinutes)
+    .input("call_type", sql.NVarChar(20), nextTier)
     .input("room_name", sql.NVarChar(100), roomName)
     .query(`
       INSERT INTO dbo.scheduled_calls (
@@ -154,6 +209,7 @@ export async function matchSlotsForSession(sessionId: string): Promise<MatchSlot
         user_b_id,
         scheduled_at,
         duration_minutes,
+        call_type,
         room_name
       )
       OUTPUT INSERTED.id
@@ -164,13 +220,13 @@ export async function matchSlotsForSession(sessionId: string): Promise<MatchSlot
         @user_b_id,
         @scheduled_at,
         @duration_minutes,
+        @call_type,
         @room_name
       );
     `);
 
   const scheduledCallId = (scheduledCallResult.recordset[0] as { id: string }).id;
 
-  await updateRelationshipStage(pool, context.relationshipId, "scheduled_15min", sessionId);
   await sendFollowUpCallScheduledEmail(context.participantAEmail, context.participantBAlias, scheduledAt);
   await sendFollowUpCallScheduledEmail(context.participantBEmail, context.participantAAlias, scheduledAt);
   await enqueueScheduledCallReminders(

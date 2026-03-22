@@ -76,6 +76,13 @@ export async function speedRoundsFeedback(
       .input("session_id", sql.UniqueIdentifier, body.session_id)
       .input("relationship_id", sql.UniqueIdentifier, session.relationshipId)
       .input("author_user_id", sql.UniqueIdentifier, authUserId)
+      .input(
+        "reviewed_user_id",
+        sql.UniqueIdentifier,
+        session.participantAUserId.toLowerCase() === authUserId.toLowerCase()
+          ? session.participantBUserId
+          : session.participantAUserId
+      )
       .input("was_professional", sql.Bit, body.was_professional ?? null)
       .input("felt_unsafe", sql.Bit, body.felt_unsafe ?? null)
       .input("private_note", sql.NVarChar(500), privateNote)
@@ -158,6 +165,26 @@ export async function speedRoundsFeedback(
           SET flagged_for_review = 1,
               last_updated = SYSUTCDATETIME()
           WHERE id = @relationship_id;
+        END;
+
+        IF @was_professional = 0
+           AND (
+             SELECT COUNT(*)
+             FROM dbo.speed_round_feedback
+             WHERE author_user_id <> @reviewed_user_id
+               AND was_professional = 0
+               AND relationship_id IN (
+                 SELECT id
+                 FROM dbo.relationships
+                 WHERE user_a_id = @reviewed_user_id
+                    OR user_b_id = @reviewed_user_id
+               )
+           ) >= 3
+        BEGIN
+          UPDATE dbo.users
+          SET flagged_for_review = 1,
+              updated_at = SYSUTCDATETIME()
+          WHERE id = @reviewed_user_id;
         END;
       `);
 

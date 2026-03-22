@@ -77,7 +77,7 @@ export async function speedRoundsDecision(
         ? session.participantAId
         : session.participantBId;
 
-    await ensureRelationshipForPair(pool, session.participantAUserId, session.participantBUserId, body.session_id, "speed_round_done");
+    await ensureRelationshipForPair(pool, session.participantAUserId, session.participantBUserId, body.session_id, "3min");
 
     await pool.request()
       .input("session_id", sql.UniqueIdentifier, body.session_id)
@@ -133,7 +133,15 @@ export async function speedRoundsDecision(
             END;
           `);
 
-        await updateRelationshipStage(pool, session.relationshipId, "mutual_yes", body.session_id);
+        if (session.sessionTier === "15min") {
+          await updateRelationshipStage(pool, session.relationshipId, "15min", body.session_id);
+        } else if (session.sessionTier === "60min") {
+          await updateRelationshipStage(pool, session.relationshipId, "60min", body.session_id);
+        } else if (session.sessionTier === "date") {
+          await updateRelationshipStage(pool, session.relationshipId, "date", body.session_id);
+        } else {
+          await updateRelationshipStage(pool, session.relationshipId, "3min", body.session_id);
+        }
       } else {
         await updateRelationshipStage(pool, session.relationshipId, "passed", body.session_id);
 

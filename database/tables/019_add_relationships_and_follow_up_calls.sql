@@ -10,7 +10,7 @@ CREATE TABLE dbo.relationships (
     user_b_id UNIQUEIDENTIFIER NOT NULL,
     latest_session_id UNIQUEIDENTIFIER NULL,
     stage NVARCHAR(30) NOT NULL
-        CONSTRAINT DF_relationships_stage DEFAULT 'speed_round_done',
+        CONSTRAINT DF_relationships_stage DEFAULT '3min',
     started_at DATETIME2(7) NOT NULL
         CONSTRAINT DF_relationships_started_at DEFAULT SYSUTCDATETIME(),
     last_updated DATETIME2(7) NOT NULL
@@ -27,14 +27,11 @@ CREATE TABLE dbo.relationships (
     CONSTRAINT CK_relationships_order CHECK (user_a_id < user_b_id),
     CONSTRAINT CK_relationships_stage CHECK (
         stage IN (
-            'speed_round_done',
+            '3min',
             'passed',
-            'mutual_yes',
-            'scheduled_15min',
-            'completed_15min',
-            'scheduled_60min',
-            'completed_60min',
-            'offline_date',
+            '15min',
+            '60min',
+            'date',
             'revealed'
         )
     ),
@@ -96,14 +93,11 @@ CREATE TABLE dbo.relationship_notes (
         FOREIGN KEY (author_user_id) REFERENCES dbo.users(id),
     CONSTRAINT CK_relationship_notes_stage CHECK (
         stage IN (
-            'speed_round_done',
+            '3min',
             'passed',
-            'mutual_yes',
-            'scheduled_15min',
-            'completed_15min',
-            'scheduled_60min',
-            'completed_60min',
-            'offline_date',
+            '15min',
+            '60min',
+            'date',
             'revealed'
         )
     ),
@@ -149,7 +143,7 @@ CREATE TABLE dbo.scheduled_calls (
     scheduled_at DATETIME2(7) NOT NULL,
     duration_minutes INT NOT NULL,
     call_type NVARCHAR(20) NOT NULL
-        CONSTRAINT DF_scheduled_calls_call_type DEFAULT 'video',
+        CONSTRAINT DF_scheduled_calls_call_type DEFAULT '15min',
     status NVARCHAR(20) NOT NULL
         CONSTRAINT DF_scheduled_calls_status DEFAULT 'scheduled',
     room_name NVARCHAR(100) NOT NULL,
@@ -168,8 +162,8 @@ CREATE TABLE dbo.scheduled_calls (
         FOREIGN KEY (user_b_id) REFERENCES dbo.users(id),
     CONSTRAINT CK_scheduled_calls_not_self CHECK (user_a_id <> user_b_id),
     CONSTRAINT CK_scheduled_calls_duration CHECK (duration_minutes > 0),
-    CONSTRAINT CK_scheduled_calls_call_type CHECK (call_type IN ('video', 'audio', 'offline')),
-    CONSTRAINT CK_scheduled_calls_status CHECK (status IN ('scheduled', 'rescheduled', 'cancelled', 'completed'))
+    CONSTRAINT CK_scheduled_calls_call_type CHECK (call_type IN ('15min', '60min', 'date')),
+    CONSTRAINT CK_scheduled_calls_status CHECK (status IN ('scheduled', 'in-progress', 'completed', 'missed', 'cancelled'))
 );
 
 CREATE INDEX IX_scheduled_calls_user_a_upcoming
@@ -183,7 +177,7 @@ SELECT
     CASE WHEN pa.user_id < pb.user_id THEN pa.user_id ELSE pb.user_id END AS user_a_id,
     CASE WHEN pa.user_id < pb.user_id THEN pb.user_id ELSE pa.user_id END AS user_b_id,
     s.id,
-    'speed_round_done',
+    '3min',
     s.created_at,
     s.created_at
 FROM dbo.speed_round_sessions s
@@ -205,7 +199,7 @@ SET stage = CASE
             FROM dbo.connections c
             WHERE c.user_a_id = r.user_a_id
               AND c.user_b_id = r.user_b_id
-        ) THEN 'mutual_yes'
+        ) THEN '3min'
         WHEN EXISTS (
             SELECT 1
             FROM dbo.speed_round_decisions d

@@ -1,6 +1,8 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import sql from "mssql";
 import { requireAuth } from "../shared/auth";
 import { createVideoAccessToken } from "../shared/twilio";
+import { getDbPool } from "../shared/db";
 
 type TwilioTokenRequest = {
   room_name?: string;
@@ -51,13 +53,40 @@ export async function twilioToken(
   }
 
   try {
-    const token = createVideoAccessToken(auth.sub, body.room_name.trim());
+    const roomName = body.room_name.trim();
+    const pool = await getDbPool();
+    const sessionResult = await pool.request()
+      .input("room_name", sql.NVarChar(100), roomName)
+      .input("user_id", sql.UniqueIdentifier, auth.sub)
+      .query(`
+        SELECT TOP 1 s.duration_seconds
+        FROM dbo.speed_round_sessions s
+        INNER JOIN dbo.speed_round_participants pa
+          ON pa.id = s.participant_a_id
+        INNER JOIN dbo.speed_round_participants pb
+          ON pb.id = s.participant_b_id
+        WHERE s.room_name = @room_name
+          AND (@user_id = pa.user_id OR @user_id = pb.user_id);
+      `);
+
+    const session = sessionResult.recordset[0] as { duration_seconds: number } | undefined;
+
+    if (!session) {
+      return {
+        status: 404,
+        jsonBody: {
+          error: "Room not found for this user."
+        }
+      };
+    }
+
+    const token = createVideoAccessToken(auth.sub, roomName, session.duration_seconds + 300);
 
     return {
       status: 200,
       jsonBody: {
         token,
-        room_name: body.room_name.trim()
+        room_name: roomName
       }
     };
   } catch (error) {

@@ -2,20 +2,18 @@ import sql from "mssql";
 import type { ConnectionPool } from "mssql";
 
 export type RelationshipStage =
-  | "speed_round_done"
+  | "3min"
   | "passed"
-  | "mutual_yes"
-  | "scheduled_15min"
-  | "completed_15min"
-  | "scheduled_60min"
-  | "completed_60min"
-  | "offline_date"
+  | "15min"
+  | "60min"
+  | "date"
   | "revealed";
 
 export type AvailabilityPeriod = "morning" | "afternoon" | "evening";
 
 export type SessionRelationshipContext = {
   sessionId: string;
+  sessionTier: "3min" | "15min" | "60min" | "date";
   relationshipId: string;
   relationshipStage: RelationshipStage;
   participantAId: string;
@@ -29,14 +27,11 @@ export type SessionRelationshipContext = {
 };
 
 const stageRank: Record<RelationshipStage, number> = {
-  speed_round_done: 1,
+  "3min": 1,
   passed: 99,
-  mutual_yes: 2,
-  scheduled_15min: 3,
-  completed_15min: 4,
-  scheduled_60min: 5,
-  completed_60min: 6,
-  offline_date: 7,
+  "15min": 2,
+  "60min": 3,
+  date: 4,
   revealed: 100
 };
 
@@ -82,6 +77,7 @@ export async function getSessionRelationshipContext(
   const result = await request.query(`
     SELECT TOP 1
       s.id AS session_id,
+      s.session_tier,
       pa.id AS participant_a_id,
       pb.id AS participant_b_id,
       pa.user_id AS participant_a_user_id,
@@ -111,6 +107,7 @@ export async function getSessionRelationshipContext(
   const row = result.recordset[0] as
     | {
         session_id: string;
+        session_tier: "3min" | "15min" | "60min" | "date";
         participant_a_id: string;
         participant_b_id: string;
         participant_a_user_id: string;
@@ -130,6 +127,7 @@ export async function getSessionRelationshipContext(
 
   return {
     sessionId: row.session_id,
+    sessionTier: row.session_tier,
     relationshipId: row.relationship_id,
     relationshipStage: row.relationship_stage,
     participantAId: row.participant_a_id,
@@ -148,7 +146,7 @@ export async function ensureRelationshipForPair(
   userA: string,
   userB: string,
   latestSessionId?: string,
-  stage: RelationshipStage = "speed_round_done"
+  stage: RelationshipStage = "3min"
 ): Promise<string> {
   const { userAId, userBId } = normalizeRelationshipPair(userA, userB);
   const result = await pool.request()

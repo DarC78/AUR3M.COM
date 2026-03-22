@@ -154,10 +154,24 @@ export async function speedRoundsJoin(
       .query(`
         SELECT TOP 1 p.id
         FROM dbo.speed_round_participants p
+        INNER JOIN dbo.users current_user
+          ON current_user.id = @user_id
+        INNER JOIN dbo.users candidate_user
+          ON candidate_user.id = p.user_id
         WHERE p.event_id = @event_id
           AND p.user_id <> @user_id
           AND p.status = 'waiting'
           AND p.id <> @participant_id
+          AND (
+            current_user.interested_in = 'both'
+            OR (current_user.interested_in = 'women' AND candidate_user.gender = 'female')
+            OR (current_user.interested_in = 'men' AND candidate_user.gender = 'male')
+          )
+          AND (
+            candidate_user.interested_in = 'both'
+            OR (candidate_user.interested_in = 'women' AND current_user.gender = 'female')
+            OR (candidate_user.interested_in = 'men' AND current_user.gender = 'male')
+          )
           AND NOT EXISTS (
             SELECT 1
             FROM dbo.speed_round_sessions s
@@ -253,12 +267,13 @@ export async function speedRoundsJoin(
       throw new Error("Matched partner user not found.");
     }
 
-    await ensureRelationshipForPair(pool, authUserId, partnerUser.user_id, session.id, "speed_round_done");
+    await ensureRelationshipForPair(pool, authUserId, partnerUser.user_id, session.id, "3min");
 
     return {
       status: 200,
       jsonBody: {
         matched: true,
+        status: "matched",
         session_id: session.id,
         room_name: session.room_name
       }

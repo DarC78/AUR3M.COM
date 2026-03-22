@@ -4,7 +4,8 @@ import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
 import { cancelScheduledCallReminderEmails } from "../shared/followUpScheduling";
 import { enqueueUpcomingCallReminderEmail } from "../shared/email";
-import { AvailabilityPeriod, getScheduledAtForSlot } from "../shared/speedRoundFollowUp";
+import { AvailabilityPeriod } from "../shared/speedRoundFollowUp";
+import { convertLocalSlotToUtc } from "../shared/timezones";
 
 type CalendarPatchRequest = {
   action?: "reschedule" | "cancel";
@@ -81,7 +82,9 @@ export async function calendarPatch(
           ua.email AS user_a_email,
           ub.email AS user_b_email,
           ua.display_name AS user_a_alias,
-          ub.display_name AS user_b_alias
+          ub.display_name AS user_b_alias,
+          ua.timezone AS user_a_timezone,
+          ub.timezone AS user_b_timezone
         FROM dbo.scheduled_calls sc
         INNER JOIN dbo.users ua
           ON ua.id = sc.user_a_id
@@ -102,6 +105,8 @@ export async function calendarPatch(
           user_b_email: string;
           user_a_alias: string;
           user_b_alias: string;
+          user_a_timezone: string;
+          user_b_timezone: string;
         }
       | undefined;
 
@@ -118,7 +123,7 @@ export async function calendarPatch(
         .input("id", sql.UniqueIdentifier, call.id)
         .query(`
           UPDATE dbo.scheduled_calls
-          SET status = 'cancelled',
+          SET status = 'missed',
               cancelled_at = SYSUTCDATETIME(),
               updated_at = SYSUTCDATETIME()
           WHERE id = @id;
@@ -129,7 +134,7 @@ export async function calendarPatch(
         jsonBody: {
           success: true,
           id: call.id,
-          status: "cancelled"
+          status: "missed"
         }
       };
     }
@@ -138,30 +143,45 @@ export async function calendarPatch(
       .input("session_id", sql.UniqueIdentifier, call.session_id)
       .input("user_a_id", sql.UniqueIdentifier, call.user_a_id)
       .input("user_b_id", sql.UniqueIdentifier, call.user_b_id)
-      .input("slot_date", sql.Date, body.new_date!)
-      .input("period", sql.NVarChar(20), body.new_period!)
       .query(`
-        SELECT TOP 1 1 AS has_overlap
+        SELECT
+          a.slot_date AS slot_date_a,
+          a.period AS period_a,
+          b.slot_date AS slot_date_b,
+          b.period AS period_b
         FROM dbo.speed_round_availability a
-        INNER JOIN dbo.speed_round_availability b
-          ON b.session_id = a.session_id
-         AND b.slot_date = a.slot_date
-         AND b.period = a.period
+        CROSS JOIN dbo.speed_round_availability b
         WHERE a.session_id = @session_id
+          AND b.session_id = @session_id
           AND a.user_id = @user_a_id
           AND b.user_id = @user_b_id
-          AND a.slot_date = @slot_date
-          AND a.period = @period;
+          AND a.slot_date BETWEEN DATEADD(DAY, -1, b.slot_date) AND DATEADD(DAY, 1, b.slot_date);
       `);
 
-    if (!overlapResult.recordset[0]) {
+    const desiredUtc =
+      authUserId.toLowerCase() === call.user_a_id.toLowerCase()
+        ? convertLocalSlotToUtc(body.new_date!, body.new_period!, call.user_a_timezone)
+        : convertLocalSlotToUtc(body.new_date!, body.new_period!, call.user_b_timezone);
+
+    const hasOverlap = (overlapResult.recordset as Array<{
+      slot_date_a: Date;
+      period_a: AvailabilityPeriod;
+      slot_date_b: Date;
+      period_b: AvailabilityPeriod;
+    }>).some((row) => {
+      const utcA = convertLocalSlotToUtc(row.slot_date_a.toISOString().slice(0, 10), row.period_a, call.user_a_timezone);
+      const utcB = convertLocalSlotToUtc(row.slot_date_b.toISOString().slice(0, 10), row.period_b, call.user_b_timezone);
+      return utcA.getTime() === utcB.getTime() && utcA.getTime() === desiredUtc.getTime();
+    });
+
+    if (!hasOverlap) {
       return {
         status: 409,
         jsonBody: { error: "The requested slot is not available for both users." }
       };
     }
 
-    const scheduledAt = getScheduledAtForSlot(body.new_date!, body.new_period!);
+    const scheduledAt = desiredUtc;
 
     await cancelScheduledCallReminderEmails(call.id);
     await pool.request()
@@ -170,7 +190,7 @@ export async function calendarPatch(
       .query(`
         UPDATE dbo.scheduled_calls
         SET scheduled_at = @scheduled_at,
-            status = 'rescheduled',
+            status = 'scheduled',
             updated_at = SYSUTCDATETIME()
         WHERE id = @id;
       `);
@@ -181,11 +201,11 @@ export async function calendarPatch(
     return {
       status: 200,
       jsonBody: {
-        success: true,
-        id: call.id,
-        status: "rescheduled"
-      }
-    };
+          success: true,
+          id: call.id,
+          status: "scheduled"
+        }
+      };
   } catch (error) {
     context.error("Calendar patch failed.", error);
     return {

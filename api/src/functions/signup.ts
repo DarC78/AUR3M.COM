@@ -98,6 +98,7 @@ export async function signup(
       .input("membership", sql.NVarChar(20), "free")
       .input("current_tier", sql.Int, 0)
       .input("is_test_member", sql.Bit, false)
+      .input("timezone", sql.NVarChar(100), "Europe/London")
       .query(`
         INSERT INTO dbo.users (
           email,
@@ -111,7 +112,8 @@ export async function signup(
           interested_in,
           membership,
           current_tier,
-          is_test_member
+          is_test_member,
+          timezone
         )
         OUTPUT
           INSERTED.id,
@@ -133,7 +135,8 @@ export async function signup(
           @interested_in,
           @membership,
           @current_tier,
-          @is_test_member
+          @is_test_member,
+          @timezone
         );
       `);
 

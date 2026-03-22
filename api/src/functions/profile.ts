@@ -6,6 +6,7 @@ import { getDbPool } from "../shared/db";
 type ProfilePatchRequest = {
   age_bracket?: "18-25" | "26-35" | "36-45" | "46-55" | "55+";
   location?: string;
+  timezone?: string;
 };
 
 const allowedAgeBrackets = new Set(["18-25", "26-35", "36-45", "46-55", "55+"]);
@@ -31,7 +32,8 @@ async function fetchProfile(authUserId: string): Promise<HttpResponseInit> {
         gender,
         age_bracket,
         location,
-        profession
+        profession,
+        timezone
       FROM dbo.users
       WHERE id = @id AND is_active = 1;
     `);
@@ -88,9 +90,10 @@ export async function profile(
 
       const hasAgeBracket = Object.prototype.hasOwnProperty.call(body, "age_bracket");
       const hasLocation = Object.prototype.hasOwnProperty.call(body, "location");
+      const hasTimezone = Object.prototype.hasOwnProperty.call(body, "timezone");
 
-      if (!hasAgeBracket && !hasLocation) {
-        return badRequest("At least one of age_bracket or location must be provided.");
+      if (!hasAgeBracket && !hasLocation && !hasTimezone) {
+        return badRequest("At least one of age_bracket, location, or timezone must be provided.");
       }
 
       if (hasAgeBracket && body.age_bracket && !allowedAgeBrackets.has(body.age_bracket)) {
@@ -101,13 +104,19 @@ export async function profile(
         return badRequest("location must be a string.");
       }
 
+      if (hasTimezone && typeof body.timezone !== "string") {
+        return badRequest("timezone must be a string.");
+      }
+
       const pool = await getDbPool();
       await pool.request()
         .input("id", sql.UniqueIdentifier, authUserId)
         .input("has_age_bracket", sql.Bit, hasAgeBracket ? 1 : 0)
         .input("has_location", sql.Bit, hasLocation ? 1 : 0)
+        .input("has_timezone", sql.Bit, hasTimezone ? 1 : 0)
         .input("age_bracket", sql.NVarChar(20), hasAgeBracket ? body.age_bracket ?? null : null)
         .input("location", sql.NVarChar(150), hasLocation ? body.location?.trim() ?? null : null)
+        .input("timezone", sql.NVarChar(100), hasTimezone ? body.timezone?.trim() ?? null : null)
         .query(`
           UPDATE dbo.users
           SET
@@ -120,6 +129,11 @@ export async function profile(
               WHEN @has_location = 1
                 THEN @location
               ELSE location
+            END,
+            timezone = CASE
+              WHEN @has_timezone = 1
+                THEN @timezone
+              ELSE timezone
             END,
             updated_at = SYSUTCDATETIME()
           WHERE id = @id AND is_active = 1;

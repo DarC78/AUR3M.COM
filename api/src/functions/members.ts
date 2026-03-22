@@ -66,7 +66,7 @@ export async function members(
           WHERE is_active = 1
             AND (@gender IS NULL OR gender = @gender)
             AND (@age_bracket IS NULL OR age_bracket = @age_bracket)
-            AND (@location IS NULL OR location = @location)
+            AND (@location IS NULL OR location LIKE '%' + @location + '%')
         ) AS filtered_users
         ORDER BY created_at DESC;
       `);

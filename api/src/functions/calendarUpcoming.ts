@@ -43,8 +43,8 @@ export async function calendarUpcoming(
         INNER JOIN dbo.users ub
           ON ub.id = sc.user_b_id
         WHERE (@user_id = sc.user_a_id OR @user_id = sc.user_b_id)
-          AND sc.status IN ('scheduled', 'rescheduled')
-          AND sc.scheduled_at >= SYSUTCDATETIME()
+          AND sc.status IN ('scheduled', 'in-progress')
+          AND sc.scheduled_at >= DATEADD(HOUR, -1, SYSUTCDATETIME())
         ORDER BY sc.scheduled_at ASC;
       `);
 
