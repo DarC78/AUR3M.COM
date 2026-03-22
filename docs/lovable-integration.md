@@ -10,7 +10,8 @@ This is the contract the Lovable frontend should use against the AUR3M backend.
 
 1. Call `POST /api/auth/signup` to create a user.
 2. Call `POST /api/auth/login` to receive a JWT.
-3. Send `Authorization: Bearer <token>` for authenticated endpoints.
+3. Use `POST /api/auth/forgot-password` and `POST /api/auth/reset-password` for password recovery.
+4. Send `Authorization: Bearer <token>` for authenticated endpoints.
 
 ## Endpoints
 
@@ -55,6 +56,47 @@ Request body:
 {
   "email": "string",
   "password": "string"
+}
+```
+
+### `POST /api/auth/forgot-password`
+
+Request body:
+
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+Success response:
+
+```json
+{
+  "success": true
+}
+```
+
+If the account exists, the backend sends a reset email with a link in this format:
+
+`https://aur3m.com/reset-password?token=<token>`
+
+### `POST /api/auth/reset-password`
+
+Request body:
+
+```json
+{
+  "token": "reset-token-from-email",
+  "password": "new-password"
+}
+```
+
+Success response:
+
+```json
+{
+  "success": true
 }
 ```
 

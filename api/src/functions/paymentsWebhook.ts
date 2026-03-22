@@ -2,7 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import sql from "mssql";
 import Stripe from "stripe";
 import { getDbPool } from "../shared/db";
-import { enqueueMembershipUpgradeEmail } from "../shared/email";
+import { sendMembershipUpgradeEmail } from "../shared/email";
 import { getCurrentTierForMembership, getStripeClient, getStripeWebhookSecret } from "../shared/stripe";
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
@@ -44,7 +44,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   const updatedUser = updateResult.recordset[0] as { email: string } | undefined;
 
   if (updatedUser?.email) {
-    await enqueueMembershipUpgradeEmail(updatedUser.email, tier as "silver" | "gold" | "platinum");
+    await sendMembershipUpgradeEmail(updatedUser.email, tier as "silver" | "gold" | "platinum");
   }
 }
 

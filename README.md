@@ -18,6 +18,8 @@ Production base URL:
 
 - `POST /api/auth/signup`
 - `POST /api/auth/login`
+- `POST /api/auth/forgot-password`
+- `POST /api/auth/reset-password`
 - `GET /api/profile`
 - `GET /api/members`
 - `GET /api/speed-rounds/upcoming`
@@ -49,6 +51,7 @@ Run these against the `AUR3M` database in order:
 11. `database/tables/012_extend_users_for_stripe.sql`
 12. `database/tables/013_add_free_tier_membership.sql`
 13. `database/tables/014_scheduled_emails.sql`
+14. `database/tables/015_password_reset_tokens.sql`
 
 ## Required Azure App Settings
 
@@ -64,6 +67,7 @@ Run these against the `AUR3M` database in order:
 - `STRIPE_PRICE_ID_PLATINUM`
 - `RESEND_API_KEY`
 - `RESEND_FROM_EMAIL` (optional)
+- `PUBLIC_APP_URL` (optional, defaults to `https://aur3m.com`)
 
 ## Reference Docs
 
