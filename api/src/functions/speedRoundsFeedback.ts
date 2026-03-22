@@ -2,7 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import sql from "mssql";
 import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
-import { getSessionRelationshipContext } from "../shared/speedRoundFollowUp";
+import { ensureRelationshipForPair, getSessionRelationshipContext } from "../shared/speedRoundFollowUp";
 
 type SpeedRoundsFeedbackRequest = {
   session_id?: string;
@@ -72,9 +72,17 @@ export async function speedRoundsFeedback(
       };
     }
 
+    const relationshipId = session.relationshipId ?? await ensureRelationshipForPair(
+      pool,
+      session.participantAUserId,
+      session.participantBUserId,
+      body.session_id,
+      "3min"
+    );
+
     await pool.request()
       .input("session_id", sql.UniqueIdentifier, body.session_id)
-      .input("relationship_id", sql.UniqueIdentifier, session.relationshipId)
+      .input("relationship_id", sql.UniqueIdentifier, relationshipId)
       .input("author_user_id", sql.UniqueIdentifier, authUserId)
       .input(
         "reviewed_user_id",

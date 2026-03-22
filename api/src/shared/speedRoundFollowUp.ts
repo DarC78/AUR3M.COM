@@ -14,8 +14,8 @@ export type AvailabilityPeriod = "morning" | "afternoon" | "evening";
 export type SessionRelationshipContext = {
   sessionId: string;
   sessionTier: "3min" | "15min" | "60min" | "date";
-  relationshipId: string;
-  relationshipStage: RelationshipStage;
+  relationshipId: string | null;
+  relationshipStage: RelationshipStage | null;
   participantAId: string;
   participantBId: string;
   participantAUserId: string;
@@ -97,7 +97,7 @@ export async function getSessionRelationshipContext(
       ON ua.id = pa.user_id
     INNER JOIN dbo.users ub
       ON ub.id = pb.user_id
-    INNER JOIN dbo.relationships r
+    LEFT JOIN dbo.relationships r
       ON r.user_a_id = CASE WHEN pa.user_id < pb.user_id THEN pa.user_id ELSE pb.user_id END
      AND r.user_b_id = CASE WHEN pa.user_id < pb.user_id THEN pb.user_id ELSE pa.user_id END
     WHERE s.id = @session_id
@@ -116,8 +116,8 @@ export async function getSessionRelationshipContext(
         participant_b_alias: string;
         participant_a_email: string;
         participant_b_email: string;
-        relationship_id: string;
-        relationship_stage: RelationshipStage;
+        relationship_id: string | null;
+        relationship_stage: RelationshipStage | null;
       }
     | undefined;
 

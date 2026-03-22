@@ -133,17 +133,32 @@ export async function speedRoundsDecision(
             END;
           `);
 
+        const relationshipId = session.relationshipId ?? await ensureRelationshipForPair(
+          pool,
+          session.participantAUserId,
+          session.participantBUserId,
+          body.session_id,
+          "3min"
+        );
+
         if (session.sessionTier === "15min") {
-          await updateRelationshipStage(pool, session.relationshipId, "15min", body.session_id);
+          await updateRelationshipStage(pool, relationshipId, "15min", body.session_id);
         } else if (session.sessionTier === "60min") {
-          await updateRelationshipStage(pool, session.relationshipId, "60min", body.session_id);
+          await updateRelationshipStage(pool, relationshipId, "60min", body.session_id);
         } else if (session.sessionTier === "date") {
-          await updateRelationshipStage(pool, session.relationshipId, "date", body.session_id);
+          await updateRelationshipStage(pool, relationshipId, "date", body.session_id);
         } else {
-          await updateRelationshipStage(pool, session.relationshipId, "3min", body.session_id);
+          await updateRelationshipStage(pool, relationshipId, "3min", body.session_id);
         }
       } else {
-        await updateRelationshipStage(pool, session.relationshipId, "passed", body.session_id);
+        const relationshipId = session.relationshipId ?? await ensureRelationshipForPair(
+          pool,
+          session.participantAUserId,
+          session.participantBUserId,
+          body.session_id,
+          "3min"
+        );
+        await updateRelationshipStage(pool, relationshipId, "passed", body.session_id);
 
         const yesParticipantIds = new Set(
           decisions

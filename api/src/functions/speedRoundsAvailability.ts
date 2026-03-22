@@ -3,7 +3,7 @@ import sql from "mssql";
 import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
 import { matchSlotsForSession } from "../shared/followUpScheduling";
-import { AvailabilityPeriod, getSessionRelationshipContext } from "../shared/speedRoundFollowUp";
+import { AvailabilityPeriod, ensureRelationshipForPair, getSessionRelationshipContext } from "../shared/speedRoundFollowUp";
 
 type AvailabilitySlot = {
   date: string;
@@ -96,6 +96,14 @@ export async function speedRoundsAvailability(
       };
     }
 
+    const relationshipId = session.relationshipId ?? await ensureRelationshipForPair(
+      pool,
+      session.participantAUserId,
+      session.participantBUserId,
+      body.session_id,
+      "3min"
+    );
+
     const participantId =
       session.participantAUserId.toLowerCase() === authUserId.toLowerCase()
         ? session.participantAId
@@ -122,7 +130,7 @@ export async function speedRoundsAvailability(
 
     await pool.request()
       .input("session_id", sql.UniqueIdentifier, body.session_id)
-      .input("relationship_id", sql.UniqueIdentifier, session.relationshipId)
+      .input("relationship_id", sql.UniqueIdentifier, relationshipId)
       .input("user_id", sql.UniqueIdentifier, authUserId)
       .query(`
         DELETE FROM dbo.speed_round_availability
@@ -133,7 +141,7 @@ export async function speedRoundsAvailability(
     for (const slot of body.slots) {
       await pool.request()
         .input("session_id", sql.UniqueIdentifier, body.session_id)
-        .input("relationship_id", sql.UniqueIdentifier, session.relationshipId)
+        .input("relationship_id", sql.UniqueIdentifier, relationshipId)
         .input("user_id", sql.UniqueIdentifier, authUserId)
         .input("slot_date", sql.Date, slot.date)
         .input("period", sql.NVarChar(20), slot.period)
