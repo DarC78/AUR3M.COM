@@ -14,6 +14,8 @@ Confirm these exist and are applied:
 - `STRIPE_PRICE_ID_SILVER`
 - `STRIPE_PRICE_ID_GOLD`
 - `STRIPE_PRICE_ID_PLATINUM`
+- `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL` (optional, defaults to `AUR3M <hello@aur3m.com>`)
 
 After any change:
 

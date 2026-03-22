@@ -2,13 +2,14 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import sql from "mssql";
 import Stripe from "stripe";
 import { getDbPool } from "../shared/db";
+import { sendMembershipUpgradeEmail } from "../shared/email";
 import { getStripeClient, getStripeWebhookSecret } from "../shared/stripe";
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
   const userId = session.metadata?.userId;
   const tier = session.metadata?.tier;
 
-  if (!userId || !tier) {
+  if (!userId || !tier || !["silver", "gold", "platinum"].includes(tier)) {
     return;
   }
 
@@ -22,7 +23,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
       ? session.customer
       : session.customer?.id ?? null;
 
-  await pool.request()
+  const updateResult = await pool.request()
     .input("id", sql.UniqueIdentifier, userId)
     .input("membership", sql.NVarChar(20), tier)
     .input("membership_status", sql.NVarChar(50), "active")
@@ -34,8 +35,15 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
           membership_status = @membership_status,
           stripe_subscription_id = COALESCE(@stripe_subscription_id, stripe_subscription_id),
           stripe_customer_id = COALESCE(@stripe_customer_id, stripe_customer_id)
+      OUTPUT INSERTED.email
       WHERE id = @id;
     `);
+
+  const updatedUser = updateResult.recordset[0] as { email: string } | undefined;
+
+  if (updatedUser?.email) {
+    await sendMembershipUpgradeEmail(updatedUser.email, tier as "silver" | "gold" | "platinum");
+  }
 }
 
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {

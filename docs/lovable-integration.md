@@ -277,6 +277,12 @@ Stripe-only webhook endpoint.
 
 No frontend JWT required.
 
+On `checkout.session.completed`, the backend:
+
+- upgrades the user membership
+- stores Stripe customer/subscription identifiers
+- sends a thank-you email via Resend
+
 ### `POST /api/twilio/token`
 
 Requires bearer token.

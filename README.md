@@ -60,6 +60,8 @@ Run these against the `AUR3M` database in order:
 - `STRIPE_PRICE_ID_SILVER`
 - `STRIPE_PRICE_ID_GOLD`
 - `STRIPE_PRICE_ID_PLATINUM`
+- `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL` (optional)
 
 ## Reference Docs
 
