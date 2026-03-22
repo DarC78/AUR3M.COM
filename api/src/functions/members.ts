@@ -39,7 +39,18 @@ export async function members(
       .input("age_bracket", sql.NVarChar(20), ageBracket)
       .input("location", sql.NVarChar(150), location)
       .query(`
-        ;WITH filtered_users AS (
+        SELECT TOP (100)
+          id,
+          username,
+          alias,
+          membership,
+          current_tier,
+          gender,
+          age_bracket,
+          location,
+          profession,
+          COUNT(*) OVER () AS total_count
+        FROM (
           SELECT
             id,
             username,
@@ -56,32 +67,19 @@ export async function members(
             AND (@gender IS NULL OR gender = @gender)
             AND (@age_bracket IS NULL OR age_bracket = @age_bracket)
             AND (@location IS NULL OR location = @location)
-        )
-        SELECT TOP (100)
-          id,
-          username,
-          alias,
-          membership,
-          current_tier,
-          gender,
-          age_bracket,
-          location,
-          profession
-        FROM filtered_users
+        ) AS filtered_users
         ORDER BY created_at DESC;
-
-        SELECT COUNT(*) AS total_count
-        FROM filtered_users;
       `);
 
-    const recordsets = result.recordsets as Array<Array<{ total_count?: number }>>;
-    const totalCountResult = recordsets[1]?.[0] as { total_count: number } | undefined;
+    const members = (result.recordset as Array<Record<string, unknown> & { total_count?: number }>)
+      .map(({ total_count, ...member }) => member);
+    const totalCount = (result.recordset[0] as { total_count?: number } | undefined)?.total_count ?? 0;
 
     return {
       status: 200,
       jsonBody: {
-        members: result.recordset,
-        total_count: totalCountResult?.total_count ?? result.recordset.length
+        members,
+        total_count: totalCount
       }
     };
   } catch (error) {
