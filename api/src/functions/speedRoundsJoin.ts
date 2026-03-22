@@ -154,23 +154,23 @@ export async function speedRoundsJoin(
       .query(`
         SELECT TOP 1 p.id
         FROM dbo.speed_round_participants p
-        INNER JOIN dbo.users current_user
-          ON current_user.id = @user_id
-        INNER JOIN dbo.users candidate_user
-          ON candidate_user.id = p.user_id
+        INNER JOIN dbo.users AS current_member
+          ON current_member.id = @user_id
+        INNER JOIN dbo.users AS candidate_member
+          ON candidate_member.id = p.user_id
         WHERE p.event_id = @event_id
           AND p.user_id <> @user_id
           AND p.status = 'waiting'
           AND p.id <> @participant_id
           AND (
-            current_user.interested_in = 'both'
-            OR (current_user.interested_in = 'women' AND candidate_user.gender = 'female')
-            OR (current_user.interested_in = 'men' AND candidate_user.gender = 'male')
+            current_member.interested_in = 'both'
+            OR (current_member.interested_in = 'women' AND candidate_member.gender = 'female')
+            OR (current_member.interested_in = 'men' AND candidate_member.gender = 'male')
           )
           AND (
-            candidate_user.interested_in = 'both'
-            OR (candidate_user.interested_in = 'women' AND current_user.gender = 'female')
-            OR (candidate_user.interested_in = 'men' AND current_user.gender = 'male')
+            candidate_member.interested_in = 'both'
+            OR (candidate_member.interested_in = 'women' AND current_member.gender = 'female')
+            OR (candidate_member.interested_in = 'men' AND current_member.gender = 'male')
           )
           AND NOT EXISTS (
             SELECT 1
