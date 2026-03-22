@@ -61,3 +61,7 @@ export function getCurrentTierForMembership(membership: "free" | Tier): number {
       throw new Error("Invalid membership tier.");
   }
 }
+
+export function getDatePaymentPriceId(): string {
+  return getRequiredEnv("STRIPE_PRICE_ID_GOLD_DATE");
+}

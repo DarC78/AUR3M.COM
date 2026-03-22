@@ -2,12 +2,30 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import sql from "mssql";
 import Stripe from "stripe";
 import { getDbPool } from "../shared/db";
+import { markDatePaymentPaid } from "../shared/dateFlow";
 import { sendMembershipUpgradeEmail } from "../shared/email";
 import { getCurrentTierForMembership, getStripeClient, getStripeWebhookSecret } from "../shared/stripe";
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
   const userId = session.metadata?.userId;
   const tier = session.metadata?.tier;
+  const paymentType = session.metadata?.paymentType;
+  const relationshipId = session.metadata?.relationshipId;
+
+  if (paymentType === "gold_date" && relationshipId && userId) {
+    const paymentIntentId =
+      typeof session.payment_intent === "string"
+        ? session.payment_intent
+        : session.payment_intent?.id ?? null;
+
+    await markDatePaymentPaid(
+      relationshipId,
+      userId,
+      session.id,
+      paymentIntentId
+    );
+    return;
+  }
 
   if (!userId || !tier || !["silver", "gold", "platinum"].includes(tier)) {
     return;

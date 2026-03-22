@@ -34,8 +34,12 @@ export async function calendarUpcoming(
           END AS partner_alias,
           sc.scheduled_at,
           sc.duration_minutes,
-          sc.call_type,
-          sc.status,
+          'follow_up' AS call_type,
+          CASE
+            WHEN sc.status = 'missed' THEN 'cancelled'
+            WHEN sc.status = 'in-progress' THEN 'scheduled'
+            ELSE sc.status
+          END AS status,
           sc.room_name
         FROM dbo.scheduled_calls sc
         INNER JOIN dbo.users ua
@@ -43,7 +47,8 @@ export async function calendarUpcoming(
         INNER JOIN dbo.users ub
           ON ub.id = sc.user_b_id
         WHERE (@user_id = sc.user_a_id OR @user_id = sc.user_b_id)
-          AND sc.status IN ('scheduled', 'in-progress')
+          AND sc.call_type IN ('15min', '60min')
+          AND sc.status IN ('scheduled', 'in-progress', 'completed', 'cancelled', 'missed')
           AND sc.scheduled_at >= DATEADD(HOUR, -1, SYSUTCDATETIME())
         ORDER BY sc.scheduled_at ASC;
       `);

@@ -8,14 +8,7 @@ export async function matches(
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   context.log("Matches request received.");
-  const mutualOnly = request.query.get("mutual")?.toLowerCase() === "true";
-  const limitParam = request.query.get("limit");
-  const parsedLimit = limitParam ? Number.parseInt(limitParam, 10) : 50;
-  const limit = Number.isFinite(parsedLimit) && parsedLimit > 0
-    ? Math.min(parsedLimit, 100)
-    : 50;
-
-  let authUserId: string;
+    let authUserId: string;
 
   try {
     authUserId = requireAuth(request).sub;
@@ -29,32 +22,36 @@ export async function matches(
   }
 
   try {
-    const pool = await getDbPool();
-    const result = await pool.request()
-      .input("user_id", sql.UniqueIdentifier, authUserId)
-      .input("limit", sql.Int, limit)
-      .input("mutual_only", sql.Bit, mutualOnly ? 1 : 0)
-      .query(`
+      const pool = await getDbPool();
+      const result = await pool.request()
+        .input("user_id", sql.UniqueIdentifier, authUserId)
+        .query(`
         WITH user_matches AS (
           SELECT
-            c.id AS connection_id,
-            c.created_at AS matched_at,
+            r.id AS connection_id,
+            r.started_at AS matched_at,
             CASE
-              WHEN c.user_a_id = @user_id THEN c.user_b_id
-              ELSE c.user_a_id
+              WHEN ls.session_tier IS NOT NULL THEN ls.session_tier
+              WHEN r.stage IN ('3min', '15min', '60min', 'date') THEN r.stage
+              ELSE '3min'
+            END AS tier,
+            CASE
+              WHEN r.user_a_id = @user_id THEN r.user_b_id
+              ELSE r.user_a_id
             END AS other_user_id
-          FROM dbo.connections c
-          WHERE c.is_active = 1
-            AND (@user_id = c.user_a_id OR @user_id = c.user_b_id)
+          FROM dbo.relationships r
+          LEFT JOIN dbo.speed_round_sessions ls
+            ON ls.id = r.latest_session_id
+          WHERE @user_id = r.user_a_id OR @user_id = r.user_b_id
         ),
-        latest_speed_round AS (
+        latest_decision AS (
           SELECT
             um.connection_id,
             s.id AS session_id,
-            s.created_at,
+            d.decision,
             ROW_NUMBER() OVER (
               PARTITION BY um.connection_id
-              ORDER BY s.created_at DESC
+              ORDER BY d.updated_at DESC, d.created_at DESC
             ) AS row_num
           FROM user_matches um
           INNER JOIN dbo.speed_round_sessions s
@@ -79,54 +76,37 @@ export async function matches(
                 WHERE p2.user_id = um.other_user_id
               ))
             )
+          LEFT JOIN dbo.speed_round_participants p_self
+            ON p_self.user_id = @user_id
+           AND p_self.id IN (s.participant_a_id, s.participant_b_id)
+          LEFT JOIN dbo.speed_round_decisions d
+            ON d.session_id = s.id
+           AND d.participant_id = p_self.id
         )
         , resolved_matches AS (
           SELECT
             um.connection_id,
             um.matched_at,
             u.display_name AS alias,
-            u.membership AS tier,
+            um.tier,
             CASE
-              WHEN lsr.session_id IS NULL THEN 'matched'
-              WHEN EXISTS (
-                SELECT 1
-                FROM dbo.speed_round_sessions s
-                INNER JOIN dbo.speed_round_participants p_self
-                  ON p_self.id IN (s.participant_a_id, s.participant_b_id)
-                INNER JOIN dbo.speed_round_decisions d
-                  ON d.session_id = s.id AND d.participant_id = p_self.id
-                WHERE s.id = lsr.session_id
-                  AND p_self.user_id = @user_id
-                  AND d.decision = 'yes'
-              ) THEN 'yes'
-              WHEN EXISTS (
-                SELECT 1
-                FROM dbo.speed_round_sessions s
-                INNER JOIN dbo.speed_round_participants p_self
-                  ON p_self.id IN (s.participant_a_id, s.participant_b_id)
-                INNER JOIN dbo.speed_round_decisions d
-                  ON d.session_id = s.id AND d.participant_id = p_self.id
-                WHERE s.id = lsr.session_id
-                  AND p_self.user_id = @user_id
-                  AND d.decision = 'pass'
-              ) THEN 'pass'
+              WHEN ld.row_num = 1 AND ld.decision = 'yes' THEN 'yes'
+              WHEN ld.row_num = 1 AND ld.decision = 'pass' THEN 'pass'
               ELSE 'pending'
             END AS decision_status
           FROM user_matches um
           INNER JOIN dbo.users u ON u.id = um.other_user_id
-          LEFT JOIN latest_speed_round lsr
-            ON lsr.connection_id = um.connection_id
-           AND lsr.row_num = 1
+          LEFT JOIN latest_decision ld
+            ON ld.connection_id = um.connection_id
+           AND ld.row_num = 1
         )
-        SELECT TOP (@limit)
+        SELECT
           connection_id,
           matched_at,
           alias,
           tier,
           decision_status
         FROM resolved_matches
-        WHERE @mutual_only = 0
-           OR decision_status IN ('matched', 'yes')
         ORDER BY matched_at DESC;
       `);
 

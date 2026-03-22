@@ -414,7 +414,7 @@ Success response:
       "partner_alias": "Aurora",
       "scheduled_at": "2026-03-26T17:00:00.000Z",
       "duration_minutes": 15,
-      "call_type": "video",
+      "call_type": "follow_up",
       "status": "scheduled",
       "room_name": "sr-followup-abc123"
     }
@@ -492,6 +492,84 @@ Success response:
       "created_at": "2026-03-22T14:05:00.000Z"
     }
   ]
+}
+```
+
+### `POST /api/dates/create-payment`
+
+Requires bearer token.
+
+Request body:
+
+```json
+{
+  "relationship_id": "guid"
+}
+```
+
+Success response:
+
+```json
+{
+  "url": "https://checkout.stripe.com/..."
+}
+```
+
+### `GET /api/dates/{relationshipId}/payment-status`
+
+Requires bearer token.
+
+Success response:
+
+```json
+{
+  "relationship_id": "guid",
+  "user_paid": true,
+  "partner_paid": false,
+  "both_paid": false,
+  "payment_deadline": "2026-04-22T00:00:00.000Z"
+}
+```
+
+### `POST /api/dates/availability`
+
+Requires bearer token.
+
+Request body:
+
+```json
+{
+  "relationship_id": "guid",
+  "slots": [
+    { "date": "2026-03-15", "time": "18:00" },
+    { "date": "2026-03-15", "time": "18:30" }
+  ]
+}
+```
+
+Success response:
+
+```json
+{
+  "success": true,
+  "slots_saved": 2
+}
+```
+
+### `GET /api/dates/{relationshipId}/booking`
+
+Requires bearer token.
+
+Success response:
+
+```json
+{
+  "id": "guid",
+  "relationship_id": "guid",
+  "scheduled_at": "2026-03-15T18:00:00.000Z",
+  "venue": "The Ivy, Covent Garden",
+  "venue_address": "1-5 West Street, London WC2H 9NQ",
+  "status": "confirmed"
 }
 ```
 

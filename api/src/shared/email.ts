@@ -576,6 +576,76 @@ function getPartnerPassedEmailCopy(): EmailCopy {
   };
 }
 
+function getDatePaymentReceivedEmailCopy(alias: string): EmailCopy {
+  const { from } = getResendClient();
+  const safeAlias = escapeHtml(alias);
+
+  return {
+    from,
+    subject: "Your AUR3M date payment is confirmed",
+    html: `
+      <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
+        <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
+          <tr><td style="padding:24px 28px;"><div style="font-size:30px;line-height:1.2;color:#1f1a17;">Payment received</div><p style="font-size:16px;line-height:1.8;color:#54473c;">Your Gold date payment is in. We are now waiting for ${safeAlias} to complete their side.</p></td></tr>
+        </table>
+      </div>
+    `
+  };
+}
+
+function getDateSlotsOpenEmailCopy(alias: string): EmailCopy {
+  const { from } = getResendClient();
+  const safeAlias = escapeHtml(alias);
+
+  return {
+    from,
+    subject: "Both payments are in — choose your AUR3M date slots",
+    html: `
+      <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
+        <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
+          <tr><td style="padding:24px 28px;"><div style="font-size:30px;line-height:1.2;color:#1f1a17;">Date booking is open</div><p style="font-size:16px;line-height:1.8;color:#54473c;">Both you and ${safeAlias} have paid. Submit your evening availability to lock in the date.</p></td></tr>
+        </table>
+      </div>
+    `
+  };
+}
+
+function getDateBookedEmailCopy(alias: string, scheduledAt: Date, venue: string, venueAddress: string): EmailCopy {
+  const { from } = getResendClient();
+  const safeAlias = escapeHtml(alias);
+  const safeVenue = escapeHtml(venue);
+  const safeAddress = escapeHtml(venueAddress);
+  const formatted = escapeHtml(`${formatUtcDateTime(scheduledAt)} UTC`);
+
+  return {
+    from,
+    subject: "Your AUR3M date is booked",
+    html: `
+      <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
+        <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
+          <tr><td style="padding:24px 28px;"><div style="font-size:30px;line-height:1.2;color:#1f1a17;">Your date is confirmed</div><p style="font-size:16px;line-height:1.8;color:#54473c;">You and ${safeAlias} are booked for ${formatted} at <strong>${safeVenue}</strong>.</p><p style="font-size:15px;line-height:1.8;color:#54473c;">${safeAddress}</p></td></tr>
+        </table>
+      </div>
+    `
+  };
+}
+
+function getDateRefundIssuedEmailCopy(): EmailCopy {
+  const { from } = getResendClient();
+
+  return {
+    from,
+    subject: "Your AUR3M Gold date payment has been refunded",
+    html: `
+      <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
+        <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
+          <tr><td style="padding:24px 28px;"><div style="font-size:30px;line-height:1.2;color:#1f1a17;">Refund issued</div><p style="font-size:16px;line-height:1.8;color:#54473c;">The other side did not complete payment within the 30 day window, so your Gold date payment has been refunded in full.</p></td></tr>
+        </table>
+      </div>
+    `
+  };
+}
+
 export async function sendEmail(from: string, to: string, subject: string, html: string): Promise<void> {
   const { resend } = getResendClient();
 
@@ -663,5 +733,31 @@ export async function enqueueUpcomingCallReminderEmail(
 
 export async function sendPartnerPassedEmail(email: string): Promise<void> {
   const copy = getPartnerPassedEmailCopy();
+  await sendEmail(copy.from, email, copy.subject, copy.html);
+}
+
+export async function sendDatePaymentReceivedEmail(email: string, alias: string): Promise<void> {
+  const copy = getDatePaymentReceivedEmailCopy(alias);
+  await sendEmail(copy.from, email, copy.subject, copy.html);
+}
+
+export async function sendDateSlotsOpenEmail(email: string, alias: string): Promise<void> {
+  const copy = getDateSlotsOpenEmailCopy(alias);
+  await sendEmail(copy.from, email, copy.subject, copy.html);
+}
+
+export async function sendDateBookedEmail(
+  email: string,
+  alias: string,
+  scheduledAt: Date,
+  venue: string,
+  venueAddress: string
+): Promise<void> {
+  const copy = getDateBookedEmailCopy(alias, scheduledAt, venue, venueAddress);
+  await sendEmail(copy.from, email, copy.subject, copy.html);
+}
+
+export async function sendDateRefundIssuedEmail(email: string): Promise<void> {
+  const copy = getDateRefundIssuedEmailCopy();
   await sendEmail(copy.from, email, copy.subject, copy.html);
 }
