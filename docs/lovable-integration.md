@@ -175,7 +175,20 @@ Success response:
 
 ```json
 {
-  "thumbs_up": ["guid-1", "guid-2"]
+  "thumbs_up": ["guid-1", "guid-2"],
+  "members": [
+    {
+      "id": "guid-1",
+      "username": "member1",
+      "alias": "Member One",
+      "membership": "silver",
+      "current_tier": 1,
+      "gender": "female",
+      "age_bracket": "26-35",
+      "location": "London",
+      "profession": "Designer"
+    }
+  ]
 }
 ```
 

@@ -183,16 +183,40 @@ export async function listThumbsUp(
     const result = await pool.request()
       .input("from_user_id", sql.UniqueIdentifier, authUserId)
       .query(`
-        SELECT to_user_id, created_at
-        FROM dbo.thumbs_up
-        WHERE from_user_id = @from_user_id
-        ORDER BY created_at DESC;
+        SELECT
+          t.to_user_id,
+          u.username,
+          u.display_name AS alias,
+          u.membership,
+          u.current_tier,
+          u.gender,
+          u.age_bracket,
+          u.location,
+          u.profession,
+          t.created_at
+        FROM dbo.thumbs_up t
+        INNER JOIN dbo.users u
+          ON u.id = t.to_user_id
+        WHERE t.from_user_id = @from_user_id
+          AND u.is_active = 1
+        ORDER BY t.created_at DESC;
       `);
 
     return {
       status: 200,
       jsonBody: {
-        thumbs_up: result.recordset.map((row) => row.to_user_id)
+        thumbs_up: result.recordset.map((row) => row.to_user_id),
+        members: result.recordset.map((row) => ({
+          id: row.to_user_id,
+          username: row.username,
+          alias: row.alias,
+          membership: row.membership,
+          current_tier: row.current_tier,
+          gender: row.gender,
+          age_bracket: row.age_bracket,
+          location: row.location,
+          profession: row.profession
+        }))
       }
     };
   } catch (error) {
