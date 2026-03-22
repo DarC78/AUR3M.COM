@@ -31,16 +31,27 @@ export async function dateBooking(
 
     const result = await pool.request()
       .input("relationship_id", sql.UniqueIdentifier, relationshipId)
+      .input("user_id", sql.UniqueIdentifier, auth.sub)
       .query(`
         SELECT TOP 1
-          id,
-          relationship_id,
-          scheduled_at,
-          venue,
-          venue_address,
-          status
-        FROM dbo.date_bookings
-        WHERE relationship_id = @relationship_id;
+          db.id,
+          db.relationship_id,
+          db.scheduled_at,
+          db.venue,
+          db.venue_address,
+          db.status,
+          CASE
+            WHEN r.user_a_id = @user_id THEN ub.display_name
+            ELSE ua.display_name
+          END AS partner_alias
+        FROM dbo.date_bookings db
+        INNER JOIN dbo.relationships r
+          ON r.id = db.relationship_id
+        INNER JOIN dbo.users ua
+          ON ua.id = r.user_a_id
+        INNER JOIN dbo.users ub
+          ON ub.id = r.user_b_id
+        WHERE db.relationship_id = @relationship_id;
       `);
 
     const booking = result.recordset[0];
