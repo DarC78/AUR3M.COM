@@ -219,6 +219,64 @@ Success response:
 }
 ```
 
+### `POST /api/payments/create-checkout`
+
+Requires bearer token.
+
+Request body:
+
+```json
+{
+  "tier": "silver"
+}
+```
+
+Success response:
+
+```json
+{
+  "url": "https://checkout.stripe.com/c/pay/..."
+}
+```
+
+### `GET /api/payments/status`
+
+Requires bearer token.
+
+Success response:
+
+```json
+{
+  "membership": "silver",
+  "status": "active",
+  "current_period_end": "2026-04-22T00:00:00.000Z",
+  "cancel_at_period_end": false
+}
+```
+
+### `POST /api/payments/cancel`
+
+Requires bearer token.
+
+Silver subscriptions only.
+
+Success response:
+
+```json
+{
+  "membership": "silver",
+  "status": "active",
+  "current_period_end": "2026-04-22T00:00:00.000Z",
+  "cancel_at_period_end": true
+}
+```
+
+### `POST /api/payments/webhook`
+
+Stripe-only webhook endpoint.
+
+No frontend JWT required.
+
 ### `POST /api/twilio/token`
 
 Requires bearer token.
@@ -248,3 +306,4 @@ Success response:
 - `membership` defaults to `silver`.
 - `current_tier` defaults to `1`.
 - Speed-round matchmaking currently uses first-waiting-user pairing inside the same event.
+- Payment checkout uses Stripe-hosted Checkout and returns a redirect URL.

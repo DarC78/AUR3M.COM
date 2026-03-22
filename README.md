@@ -24,6 +24,10 @@ Production base URL:
 - `POST /api/speed-rounds/join`
 - `POST /api/speed-rounds/decision`
 - `GET /api/matches`
+- `POST /api/payments/create-checkout`
+- `POST /api/payments/webhook`
+- `GET /api/payments/status`
+- `POST /api/payments/cancel`
 - `POST /api/twilio/token`
 - `GET /api/health`
 - `GET /api/db-health`
@@ -42,6 +46,7 @@ Run these against the `AUR3M` database in order:
 8. `database/tables/008_speed_round_participants.sql`
 9. `database/tables/009_speed_round_sessions.sql`
 10. `database/tables/010_speed_round_decisions.sql`
+11. `database/tables/012_extend_users_for_stripe.sql`
 
 ## Required Azure App Settings
 
@@ -50,6 +55,11 @@ Run these against the `AUR3M` database in order:
 - `TWILIO_ACCOUNT_SID_AUR3M`
 - `TWILIO_API_KEY_SID_AUR3M`
 - `TWILIO_API_KEY_SECRET_AUR3M`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRICE_ID_SILVER`
+- `STRIPE_PRICE_ID_GOLD`
+- `STRIPE_PRICE_ID_PLATINUM`
 
 ## Reference Docs
 

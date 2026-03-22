@@ -7,7 +7,7 @@ export type AuthTokenPayload = {
 };
 
 function getJwtSecret(): string {
-  const secret = process.env.JWT_SECRET_AUR3M;
+  const secret = process.env.JWT_SECRET_AUR3M ?? process.env.JWT_SECRET;
 
   if (!secret) {
     throw new Error("Missing JWT_SECRET_AUR3M environment variable.");
