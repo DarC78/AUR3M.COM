@@ -22,6 +22,9 @@ Production base URL:
 - `POST /api/auth/reset-password`
 - `GET /api/profile`
 - `GET /api/members`
+- `GET /api/thumbs-up`
+- `POST /api/thumbs-up`
+- `DELETE /api/thumbs-up/{to_user_id}`
 - `GET /api/speed-rounds/upcoming`
 - `POST /api/speed-rounds/join`
 - `POST /api/speed-rounds/decision`
@@ -52,6 +55,7 @@ Run these against the `AUR3M` database in order:
 12. `database/tables/013_add_free_tier_membership.sql`
 13. `database/tables/014_scheduled_emails.sql`
 14. `database/tables/015_password_reset_tokens.sql`
+15. `database/tables/017_thumbs_up.sql`
 
 ## Required Azure App Settings
 

@@ -166,6 +166,52 @@ Success response:
 }
 ```
 
+### `GET /api/thumbs-up`
+
+Requires bearer token.
+
+Success response:
+
+```json
+{
+  "thumbs_up": ["guid-1", "guid-2"]
+}
+```
+
+### `POST /api/thumbs-up`
+
+Requires bearer token.
+
+Request body:
+
+```json
+{
+  "to_user_id": "guid"
+}
+```
+
+Success response:
+
+```json
+{
+  "success": true,
+  "to_user_id": "guid"
+}
+```
+
+### `DELETE /api/thumbs-up/{to_user_id}`
+
+Requires bearer token.
+
+Success response:
+
+```json
+{
+  "success": true,
+  "to_user_id": "guid"
+}
+```
+
 ### `GET /api/speed-rounds/upcoming`
 
 Success response:

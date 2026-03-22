@@ -162,7 +162,33 @@ export async function speedRoundsJoin(
             FROM dbo.speed_round_sessions s
             WHERE s.participant_a_id = p.id OR s.participant_b_id = p.id
           )
-        ORDER BY p.joined_at ASC;
+        ORDER BY
+          CASE
+            WHEN EXISTS (
+              SELECT 1
+              FROM dbo.thumbs_up t1
+              WHERE t1.from_user_id = @user_id
+                AND t1.to_user_id = p.user_id
+            ) AND EXISTS (
+              SELECT 1
+              FROM dbo.thumbs_up t2
+              WHERE t2.from_user_id = p.user_id
+                AND t2.to_user_id = @user_id
+            ) THEN 0
+            WHEN EXISTS (
+              SELECT 1
+              FROM dbo.thumbs_up t3
+              WHERE t3.from_user_id = @user_id
+                AND t3.to_user_id = p.user_id
+            ) OR EXISTS (
+              SELECT 1
+              FROM dbo.thumbs_up t4
+              WHERE t4.from_user_id = p.user_id
+                AND t4.to_user_id = @user_id
+            ) THEN 1
+            ELSE 2
+          END ASC,
+          p.joined_at ASC;
       `);
 
     const partner = partnerResult.recordset[0] as { id: string } | undefined;
