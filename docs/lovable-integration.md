@@ -40,8 +40,8 @@ Success response:
     "email": "user@example.com",
     "username": "aurora1",
     "display_name": "aurora1",
-    "membership": "silver",
-    "current_tier": 1,
+    "membership": "free",
+    "current_tier": 0,
     "created_at": "2026-03-21T22:32:52.511Z"
   }
 }
@@ -68,8 +68,8 @@ Success response:
     "email": "user@example.com",
     "username": "aurora1",
     "alias": "aurora1",
-    "membership": "silver",
-    "current_tier": 1
+    "membership": "free",
+    "current_tier": 0
   }
 }
 ```
@@ -83,8 +83,8 @@ Success response:
 ```json
 {
   "alias": "Aurora",
-  "membership": "silver",
-  "current_tier": 1,
+  "membership": "free",
+  "current_tier": 0,
   "gender": "female",
   "age_bracket": "26-35",
   "location": "London",
@@ -113,8 +113,8 @@ Success response:
       "id": "guid",
       "username": "aurora1",
       "alias": "Aurora",
-      "membership": "silver",
-      "current_tier": 1,
+      "membership": "free",
+      "current_tier": 0,
       "gender": "female",
       "age_bracket": "26-35",
       "location": "London",
@@ -280,6 +280,7 @@ No frontend JWT required.
 On `checkout.session.completed`, the backend:
 
 - upgrades the user membership
+- updates `current_tier` to match the paid plan
 - stores Stripe customer/subscription identifiers
 - sends a thank-you email via Resend
 
@@ -309,7 +310,7 @@ Success response:
 - Store the login JWT securely in the frontend session layer.
 - Send the JWT as `Authorization: Bearer <token>`.
 - The backend currently uses `display_name` as the public alias.
-- `membership` defaults to `silver`.
-- `current_tier` defaults to `1`.
+- `membership` defaults to `free`.
+- `current_tier` defaults to `0`.
 - Speed-round matchmaking currently uses first-waiting-user pairing inside the same event.
 - Payment checkout uses Stripe-hosted Checkout and returns a redirect URL.

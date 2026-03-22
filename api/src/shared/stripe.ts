@@ -46,3 +46,18 @@ export function getTierConfig(tier: Tier): TierConfig {
       throw new Error("Invalid tier.");
   }
 }
+
+export function getCurrentTierForMembership(membership: "free" | Tier): number {
+  switch (membership) {
+    case "free":
+      return 0;
+    case "silver":
+      return 1;
+    case "gold":
+      return 2;
+    case "platinum":
+      return 3;
+    default:
+      throw new Error("Invalid membership tier.");
+  }
+}

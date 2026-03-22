@@ -3,7 +3,7 @@ import sql from "mssql";
 import Stripe from "stripe";
 import { getDbPool } from "../shared/db";
 import { sendMembershipUpgradeEmail } from "../shared/email";
-import { getStripeClient, getStripeWebhookSecret } from "../shared/stripe";
+import { getCurrentTierForMembership, getStripeClient, getStripeWebhookSecret } from "../shared/stripe";
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
   const userId = session.metadata?.userId;
@@ -26,12 +26,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   const updateResult = await pool.request()
     .input("id", sql.UniqueIdentifier, userId)
     .input("membership", sql.NVarChar(20), tier)
+    .input("current_tier", sql.Int, getCurrentTierForMembership(tier as "silver" | "gold" | "platinum"))
     .input("membership_status", sql.NVarChar(50), "active")
     .input("stripe_subscription_id", sql.NVarChar(255), subscriptionId)
     .input("stripe_customer_id", sql.NVarChar(255), customerId)
     .query(`
       UPDATE dbo.users
       SET membership = @membership,
+          current_tier = @current_tier,
           membership_status = @membership_status,
           stripe_subscription_id = COALESCE(@stripe_subscription_id, stripe_subscription_id),
           stripe_customer_id = COALESCE(@stripe_customer_id, stripe_customer_id)
@@ -98,11 +100,13 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
   const pool = await getDbPool();
   await pool.request()
     .input("stripe_subscription_id", sql.NVarChar(255), subscription.id)
-    .input("membership", sql.NVarChar(20), "silver")
+    .input("membership", sql.NVarChar(20), "free")
+    .input("current_tier", sql.Int, getCurrentTierForMembership("free"))
     .input("membership_status", sql.NVarChar(50), "cancelled")
     .query(`
       UPDATE dbo.users
       SET membership = @membership,
+          current_tier = @current_tier,
           membership_status = @membership_status
       WHERE stripe_subscription_id = @stripe_subscription_id;
     `);

@@ -47,6 +47,7 @@ Run these against the `AUR3M` database in order:
 9. `database/tables/009_speed_round_sessions.sql`
 10. `database/tables/010_speed_round_decisions.sql`
 11. `database/tables/012_extend_users_for_stripe.sql`
+12. `database/tables/013_add_free_tier_membership.sql`
 
 ## Required Azure App Settings
 

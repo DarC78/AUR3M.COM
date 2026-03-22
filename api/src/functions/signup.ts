@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { hash } from "bcryptjs";
 import sql from "mssql";
 import { getDbPool } from "../shared/db";
+import { sendSignupWelcomeEmail } from "../shared/email";
 
 type SignupRequest = {
   username?: string;
@@ -94,6 +95,8 @@ export async function signup(
       .input("location", sql.NVarChar(150), body.location.trim())
       .input("profession", sql.NVarChar(150), body.profession.trim())
       .input("interested_in", sql.NVarChar(20), body.interested_in)
+      .input("membership", sql.NVarChar(20), "free")
+      .input("current_tier", sql.Int, 0)
       .query(`
         INSERT INTO dbo.users (
           email,
@@ -104,7 +107,9 @@ export async function signup(
           age_bracket,
           location,
           profession,
-          interested_in
+          interested_in,
+          membership,
+          current_tier
         )
         OUTPUT
           INSERTED.id,
@@ -123,14 +128,32 @@ export async function signup(
           @age_bracket,
           @location,
           @profession,
-          @interested_in
+          @interested_in,
+          @membership,
+          @current_tier
         );
       `);
+
+    const newUser = result.recordset[0] as {
+      id: string;
+      email: string;
+      username: string;
+      display_name: string;
+      membership: string;
+      current_tier: number;
+      created_at: string;
+    };
+
+    try {
+      await sendSignupWelcomeEmail(newUser.email, newUser.username, newUser.display_name);
+    } catch (emailError) {
+      context.error("Signup welcome email failed.", emailError);
+    }
 
     return {
       status: 201,
       jsonBody: {
-        user: result.recordset[0]
+        user: newUser
       }
     };
   } catch (error) {
