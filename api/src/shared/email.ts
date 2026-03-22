@@ -478,6 +478,104 @@ function getSignupFollowUpEmailCopies(username: string, alias: string): EmailCop
   ];
 }
 
+function formatUtcDateTime(value: Date): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "full",
+    timeStyle: "short",
+    timeZone: "UTC"
+  }).format(value);
+}
+
+function getFollowUpCallScheduledEmailCopy(alias: string, scheduledAt: Date): EmailCopy {
+  const { from } = getResendClient();
+  const safeAlias = escapeHtml(alias);
+  const formatted = escapeHtml(`${formatUtcDateTime(scheduledAt)} UTC`);
+
+  return {
+    from,
+    subject: `Your next AUR3M call is confirmed — ${formatted}`,
+    html: `
+      <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
+        <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
+          <tr>
+            <td style="padding:24px 28px;border-bottom:1px solid #e7ddd2;background:linear-gradient(135deg,#f7f1e8 0%,#efe2d1 100%);">
+              <div style="font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:#8a6f52;">AUR3M Follow-up Call</div>
+              <div style="margin-top:10px;font-size:32px;line-height:1.2;color:#1f1a17;">Your next call with ${safeAlias} is confirmed</div>
+              <div style="margin-top:10px;font-size:16px;line-height:1.7;color:#54473c;">Scheduled for <strong>${formatted}</strong>.</div>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `
+  };
+}
+
+function getNoCommonSlotsEmailCopy(alias: string): EmailCopy {
+  const { from } = getResendClient();
+  const safeAlias = escapeHtml(alias);
+
+  return {
+    from,
+    subject: "Update your availability on AUR3M",
+    html: `
+      <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
+        <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
+          <tr>
+            <td style="padding:24px 28px;">
+              <div style="font-size:30px;line-height:1.2;color:#1f1a17;">No common availability yet</div>
+              <p style="font-size:16px;line-height:1.8;color:#54473c;">We could not find an overlapping slot with ${safeAlias}. Update your availability so AUR3M can book the next call.</p>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `
+  };
+}
+
+function getUpcomingCallReminderEmailCopy(alias: string, scheduledAt: Date): EmailCopy {
+  const { from } = getResendClient();
+  const safeAlias = escapeHtml(alias);
+  const formatted = escapeHtml(`${formatUtcDateTime(scheduledAt)} UTC`);
+
+  return {
+    from,
+    subject: "Your AUR3M call starts in 1 hour",
+    html: `
+      <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
+        <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
+          <tr>
+            <td style="padding:24px 28px;">
+              <div style="font-size:30px;line-height:1.2;color:#1f1a17;">Your AUR3M call is coming up</div>
+              <p style="font-size:16px;line-height:1.8;color:#54473c;">Your call with ${safeAlias} starts in 1 hour at ${formatted}.</p>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `
+  };
+}
+
+function getPartnerPassedEmailCopy(): EmailCopy {
+  const { from } = getResendClient();
+
+  return {
+    from,
+    subject: "Your recent AUR3M connection",
+    html: `
+      <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
+        <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
+          <tr>
+            <td style="padding:24px 28px;">
+              <div style="font-size:30px;line-height:1.2;color:#1f1a17;">Your recent AUR3M connection</div>
+              <p style="font-size:16px;line-height:1.8;color:#54473c;">That connection will not be progressing further. No identities have been revealed.</p>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `
+  };
+}
+
 export async function sendEmail(from: string, to: string, subject: string, html: string): Promise<void> {
   const { resend } = getResendClient();
 
@@ -532,4 +630,38 @@ export async function enqueueSignupFollowUpEmails(
       toSendAfterDate
     });
   }
+}
+
+export async function sendFollowUpCallScheduledEmail(email: string, alias: string, scheduledAt: Date): Promise<void> {
+  const copy = getFollowUpCallScheduledEmailCopy(alias, scheduledAt);
+  await sendEmail(copy.from, email, copy.subject, copy.html);
+}
+
+export async function sendNoCommonAvailabilityEmail(email: string, alias: string): Promise<void> {
+  const copy = getNoCommonSlotsEmailCopy(alias);
+  await sendEmail(copy.from, email, copy.subject, copy.html);
+}
+
+export async function enqueueUpcomingCallReminderEmail(
+  email: string,
+  alias: string,
+  scheduledAt: Date,
+  reminderKey: string
+): Promise<void> {
+  const copy = getUpcomingCallReminderEmailCopy(alias, scheduledAt);
+  const toSendAfterDate = new Date(scheduledAt.getTime() - (60 * 60 * 1000));
+
+  await enqueueEmail({
+    emailType: reminderKey,
+    fromEmail: copy.from,
+    toEmail: email,
+    subject: copy.subject,
+    htmlBody: copy.html,
+    toSendAfterDate
+  });
+}
+
+export async function sendPartnerPassedEmail(email: string): Promise<void> {
+  const copy = getPartnerPassedEmailCopy();
+  await sendEmail(copy.from, email, copy.subject, copy.html);
 }

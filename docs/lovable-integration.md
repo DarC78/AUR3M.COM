@@ -301,6 +301,84 @@ Success response:
 }
 ```
 
+### `POST /api/speed-rounds/feedback`
+
+Requires bearer token.
+
+Request body:
+
+```json
+{
+  "session_id": "guid",
+  "was_professional": true,
+  "felt_unsafe": false,
+  "private_note": "Seemed genuine, interesting conversation about travel."
+}
+```
+
+Success response:
+
+```json
+{
+  "success": true,
+  "session_id": "guid"
+}
+```
+
+### `POST /api/speed-rounds/availability`
+
+Requires bearer token.
+
+Request body:
+
+```json
+{
+  "session_id": "guid",
+  "slots": [
+    { "date": "2026-03-24", "period": "morning" },
+    { "date": "2026-03-24", "period": "evening" }
+  ]
+}
+```
+
+Success response:
+
+```json
+{
+  "success": true,
+  "session_id": "guid",
+  "slots_saved": 2
+}
+```
+
+### `POST /api/speed-rounds/match-slots`
+
+Internal endpoint only.
+
+Requires header:
+
+`x-aur3m-internal-key: <INTERNAL_API_KEY>`
+
+Request body:
+
+```json
+{
+  "session_id": "guid"
+}
+```
+
+Success response:
+
+```json
+{
+  "success": true,
+  "session_id": "guid",
+  "result": {
+    "status": "scheduled"
+  }
+}
+```
+
 ### `GET /api/matches`
 
 Requires bearer token.
@@ -316,6 +394,102 @@ Success response:
       "alias": "aurora3",
       "tier": "silver",
       "decision_status": "yes"
+    }
+  ]
+}
+```
+
+### `GET /api/calendar/upcoming`
+
+Requires bearer token.
+
+Success response:
+
+```json
+{
+  "upcoming": [
+    {
+      "id": "guid",
+      "session_id": "guid",
+      "partner_alias": "Aurora",
+      "scheduled_at": "2026-03-26T17:00:00.000Z",
+      "duration_minutes": 15,
+      "call_type": "video",
+      "status": "scheduled",
+      "room_name": "sr-followup-abc123"
+    }
+  ]
+}
+```
+
+### `PATCH /api/calendar/{id}`
+
+Requires bearer token.
+
+Request body for reschedule:
+
+```json
+{
+  "action": "reschedule",
+  "new_date": "2026-03-28",
+  "new_period": "afternoon"
+}
+```
+
+Request body for cancel:
+
+```json
+{
+  "action": "cancel"
+}
+```
+
+Success response:
+
+```json
+{
+  "success": true,
+  "id": "guid",
+  "status": "rescheduled"
+}
+```
+
+### `GET /api/relationships`
+
+Requires bearer token.
+
+Success response:
+
+```json
+{
+  "relationships": [
+    {
+      "id": "guid",
+      "partner_alias": "Aurora",
+      "stage": "scheduled_15min",
+      "started_at": "2026-03-22T14:00:00.000Z",
+      "last_updated": "2026-03-22T15:30:00.000Z"
+    }
+  ]
+}
+```
+
+### `GET /api/relationships/{id}/notes`
+
+Requires bearer token.
+
+Returns only the authenticated user's private notes.
+
+Success response:
+
+```json
+{
+  "notes": [
+    {
+      "id": "guid",
+      "stage": "speed_round_done",
+      "note": "Seemed genuine, interesting conversation about travel.",
+      "created_at": "2026-03-22T14:05:00.000Z"
     }
   ]
 }
@@ -416,3 +590,5 @@ Success response:
 - `current_tier` defaults to `0`.
 - Speed-round matchmaking currently uses first-waiting-user pairing inside the same event.
 - Payment checkout uses Stripe-hosted Checkout and returns a redirect URL.
+- Follow-up slot scheduling currently treats submitted `date` + `period` values as UTC period start times.
+- `POST /api/speed-rounds/match-slots` is protected with `x-aur3m-internal-key`; it is not intended for browser use.

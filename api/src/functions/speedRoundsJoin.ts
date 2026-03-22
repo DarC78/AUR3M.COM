@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import sql from "mssql";
 import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
+import { ensureRelationshipForPair } from "../shared/speedRoundFollowUp";
 
 type JoinSpeedRoundRequest = {
   event_id?: string;
@@ -162,6 +163,12 @@ export async function speedRoundsJoin(
             FROM dbo.speed_round_sessions s
             WHERE s.participant_a_id = p.id OR s.participant_b_id = p.id
           )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM dbo.relationships r
+            WHERE r.user_a_id = CASE WHEN @user_id < p.user_id THEN @user_id ELSE p.user_id END
+              AND r.user_b_id = CASE WHEN @user_id < p.user_id THEN p.user_id ELSE @user_id END
+          )
         ORDER BY
           CASE
             WHEN EXISTS (
@@ -231,6 +238,22 @@ export async function speedRoundsJoin(
       `);
 
     const session = sessionResult.recordset[0] as { id: string; room_name: string };
+
+    const partnerUserResult = await pool.request()
+      .input("partner_participant_id", sql.UniqueIdentifier, partner.id)
+      .query(`
+        SELECT TOP 1 user_id
+        FROM dbo.speed_round_participants
+        WHERE id = @partner_participant_id;
+      `);
+
+    const partnerUser = partnerUserResult.recordset[0] as { user_id: string } | undefined;
+
+    if (!partnerUser) {
+      throw new Error("Matched partner user not found.");
+    }
+
+    await ensureRelationshipForPair(pool, authUserId, partnerUser.user_id, session.id, "speed_round_done");
 
     return {
       status: 200,

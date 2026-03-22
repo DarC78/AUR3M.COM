@@ -2,6 +2,13 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import sql from "mssql";
 import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
+import { sendPartnerPassedEmail } from "../shared/email";
+import {
+  ensureRelationshipForPair,
+  getSessionRelationshipContext,
+  normalizeRelationshipPair,
+  updateRelationshipStage
+} from "../shared/speedRoundFollowUp";
 
 type SpeedRoundDecisionRequest = {
   session_id?: string;
@@ -15,12 +22,6 @@ function badRequest(message: string): HttpResponseInit {
       error: message
     }
   };
-}
-
-function normalizeConnectionPair(userA: string, userB: string): { userAId: string; userBId: string } {
-  return userA.toLowerCase() < userB.toLowerCase()
-    ? { userAId: userA, userBId: userB }
-    : { userAId: userB, userBId: userA };
 }
 
 export async function speedRoundsDecision(
@@ -60,32 +61,7 @@ export async function speedRoundsDecision(
 
   try {
     const pool = await getDbPool();
-    const sessionResult = await pool.request()
-      .input("session_id", sql.UniqueIdentifier, body.session_id)
-      .input("user_id", sql.UniqueIdentifier, authUserId)
-      .query(`
-        SELECT TOP 1
-          s.id AS session_id,
-          s.participant_a_id,
-          s.participant_b_id,
-          pa.user_id AS participant_a_user_id,
-          pb.user_id AS participant_b_user_id
-        FROM dbo.speed_round_sessions s
-        INNER JOIN dbo.speed_round_participants pa ON pa.id = s.participant_a_id
-        INNER JOIN dbo.speed_round_participants pb ON pb.id = s.participant_b_id
-        WHERE s.id = @session_id
-          AND (@user_id = pa.user_id OR @user_id = pb.user_id);
-      `);
-
-    const session = sessionResult.recordset[0] as
-      | {
-          session_id: string;
-          participant_a_id: string;
-          participant_b_id: string;
-          participant_a_user_id: string;
-          participant_b_user_id: string;
-        }
-      | undefined;
+    const session = await getSessionRelationshipContext(pool, body.session_id, authUserId);
 
     if (!session) {
       return {
@@ -97,9 +73,11 @@ export async function speedRoundsDecision(
     }
 
     const participantId =
-      session.participant_a_user_id.toLowerCase() === authUserId.toLowerCase()
-        ? session.participant_a_id
-        : session.participant_b_id;
+      session.participantAUserId.toLowerCase() === authUserId.toLowerCase()
+        ? session.participantAId
+        : session.participantBId;
+
+    await ensureRelationshipForPair(pool, session.participantAUserId, session.participantBUserId, body.session_id, "speed_round_done");
 
     await pool.request()
       .input("session_id", sql.UniqueIdentifier, body.session_id)
@@ -136,23 +114,43 @@ export async function speedRoundsDecision(
     const bothDecided = decisions.length >= 2;
     const mutualYes = bothDecided && decisions.every((item) => item.decision === "yes");
 
-    if (mutualYes) {
-      const { userAId, userBId } = normalizeConnectionPair(session.participant_a_user_id, session.participant_b_user_id);
+    if (bothDecided) {
+      if (mutualYes) {
+        const { userAId, userBId } = normalizeRelationshipPair(session.participantAUserId, session.participantBUserId);
 
-      await pool.request()
-        .input("user_a_id", sql.UniqueIdentifier, userAId)
-        .input("user_b_id", sql.UniqueIdentifier, userBId)
-        .query(`
-          IF NOT EXISTS (
-            SELECT 1
-            FROM dbo.connections
-            WHERE user_a_id = @user_a_id AND user_b_id = @user_b_id
-          )
-          BEGIN
-            INSERT INTO dbo.connections (user_a_id, user_b_id)
-            VALUES (@user_a_id, @user_b_id);
-          END;
-        `);
+        await pool.request()
+          .input("user_a_id", sql.UniqueIdentifier, userAId)
+          .input("user_b_id", sql.UniqueIdentifier, userBId)
+          .query(`
+            IF NOT EXISTS (
+              SELECT 1
+              FROM dbo.connections
+              WHERE user_a_id = @user_a_id AND user_b_id = @user_b_id
+            )
+            BEGIN
+              INSERT INTO dbo.connections (user_a_id, user_b_id)
+              VALUES (@user_a_id, @user_b_id);
+            END;
+          `);
+
+        await updateRelationshipStage(pool, session.relationshipId, "mutual_yes", body.session_id);
+      } else {
+        await updateRelationshipStage(pool, session.relationshipId, "passed", body.session_id);
+
+        const yesParticipantIds = new Set(
+          decisions
+            .filter((item) => item.decision === "yes")
+            .map((item) => item.participant_id.toLowerCase())
+        );
+
+        if (yesParticipantIds.has(session.participantAId.toLowerCase())) {
+          await sendPartnerPassedEmail(session.participantAEmail);
+        }
+
+        if (yesParticipantIds.has(session.participantBId.toLowerCase())) {
+          await sendPartnerPassedEmail(session.participantBEmail);
+        }
+      }
     }
 
     return {
