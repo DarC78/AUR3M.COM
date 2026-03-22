@@ -2,7 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { hash } from "bcryptjs";
 import sql from "mssql";
 import { getDbPool } from "../shared/db";
-import { sendSignupWelcomeEmail } from "../shared/email";
+import { enqueueSignupWelcomeEmail } from "../shared/email";
 
 type SignupRequest = {
   username?: string;
@@ -145,9 +145,9 @@ export async function signup(
     };
 
     try {
-      await sendSignupWelcomeEmail(newUser.email, newUser.username, newUser.display_name);
+      await enqueueSignupWelcomeEmail(newUser.email, newUser.username, newUser.display_name);
     } catch (emailError) {
-      context.error("Signup welcome email failed.", emailError);
+      context.error("Signup welcome email enqueue failed.", emailError);
     }
 
     return {

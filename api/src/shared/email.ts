@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { enqueueEmail } from "./emailQueue";
 
 type MembershipTier = "silver" | "gold" | "platinum";
 
@@ -48,14 +49,16 @@ function getResendClient(): { resend: Resend; from: string } {
   };
 }
 
-export async function sendSignupWelcomeEmail(email: string, username: string, alias: string): Promise<void> {
-  const { resend, from } = getResendClient();
+function getSignupWelcomeEmailCopy(
+  username: string,
+  alias: string
+): { from: string; subject: string; html: string } {
+  const { from } = getResendClient();
   const safeUsername = escapeHtml(username);
   const safeAlias = escapeHtml(alias);
 
-  await resend.emails.send({
+  return {
     from,
-    to: email,
     subject: "Welcome to AUR3M",
     html: `
       <h1>Welcome to AUR3M, ${safeUsername}!</h1>
@@ -65,17 +68,51 @@ export async function sendSignupWelcomeEmail(email: string, username: string, al
       <p><a href="https://aur3m.com/subscription">View plans</a></p>
       <p>The AUR3M Team<br/>A trading style of JustProveIt Ltd</p>
     `
-  });
+  };
 }
 
-export async function sendMembershipUpgradeEmail(email: string, tier: MembershipTier): Promise<void> {
-  const { resend, from } = getResendClient();
+function getMembershipUpgradeEmailCopy(tier: MembershipTier): { from: string; subject: string; html: string } {
+  const { from } = getResendClient();
   const copy = getEmailCopy(tier);
+
+  return {
+    from,
+    subject: copy.subject,
+    html: copy.html
+  };
+}
+
+export async function sendEmail(from: string, to: string, subject: string, html: string): Promise<void> {
+  const { resend } = getResendClient();
 
   await resend.emails.send({
     from,
-    to: email,
+    to,
+    subject,
+    html
+  });
+}
+
+export async function enqueueSignupWelcomeEmail(email: string, username: string, alias: string): Promise<void> {
+  const copy = getSignupWelcomeEmailCopy(username, alias);
+
+  await enqueueEmail({
+    emailType: "signup_welcome",
+    fromEmail: copy.from,
+    toEmail: email,
     subject: copy.subject,
-    html: copy.html
+    htmlBody: copy.html
+  });
+}
+
+export async function enqueueMembershipUpgradeEmail(email: string, tier: MembershipTier): Promise<void> {
+  const copy = getMembershipUpgradeEmailCopy(tier);
+
+  await enqueueEmail({
+    emailType: `membership_upgrade_${tier}`,
+    fromEmail: copy.from,
+    toEmail: email,
+    subject: copy.subject,
+    htmlBody: copy.html
   });
 }
