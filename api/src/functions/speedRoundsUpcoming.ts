@@ -19,7 +19,7 @@ export async function speedRoundsUpcoming(
         capacity,
         status
       FROM dbo.speed_round_events
-      WHERE starts_at >= SYSUTCDATETIME()
+      WHERE ends_at > SYSUTCDATETIME()
         AND status IN ('scheduled', 'live')
       ORDER BY starts_at ASC;
     `);
