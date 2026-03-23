@@ -77,5 +77,5 @@ jobs:
         with:
           app-name: 'aur3m-api-prod'
           slot-name: 'Production'
-          package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
+          package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }} 
           

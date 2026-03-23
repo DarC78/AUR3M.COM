@@ -14,7 +14,7 @@ type CalendarPatchRequest = {
 };
 
 const allowedPeriods = new Set<AvailabilityPeriod>(["morning", "afternoon", "evening"]);
-const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/; 
 
 function badRequest(message: string): HttpResponseInit {
   return {
