@@ -290,6 +290,29 @@ export async function speedRoundsJoin(
                 ) THEN 1
                 ELSE 2
               END ASC,
+              CASE
+                WHEN (
+                  SELECT COUNT(*)
+                  FROM dbo.speed_round_sessions historical
+                  INNER JOIN dbo.speed_round_participants historical_a
+                    ON historical_a.id = historical.participant_a_id
+                  INNER JOIN dbo.speed_round_participants historical_b
+                    ON historical_b.id = historical.participant_b_id
+                  WHERE historical.session_tier = '3min'
+                    AND (historical_a.user_id = p.user_id OR historical_b.user_id = p.user_id)
+                ) < 20 THEN 0
+                ELSE 1
+              END ASC,
+              (
+                SELECT COUNT(*)
+                FROM dbo.speed_round_sessions historical
+                INNER JOIN dbo.speed_round_participants historical_a
+                  ON historical_a.id = historical.participant_a_id
+                INNER JOIN dbo.speed_round_participants historical_b
+                  ON historical_b.id = historical.participant_b_id
+                WHERE historical.session_tier = '3min'
+                  AND (historical_a.user_id = p.user_id OR historical_b.user_id = p.user_id)
+              ) ASC,
               p.joined_at ASC;
           `);
 
