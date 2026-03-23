@@ -247,7 +247,8 @@ export async function speedRoundsJoin(
               AND NOT EXISTS (
                 SELECT 1
                 FROM dbo.speed_round_sessions s WITH (UPDLOCK, HOLDLOCK)
-                WHERE s.participant_a_id = p.id OR s.participant_b_id = p.id
+                WHERE (s.participant_a_id = p.id OR s.participant_b_id = p.id)
+                  AND s.status IN ('matched', 'active')
               )
               AND (
                 LOWER(current_member.email) LIKE '%ionpopescu%'
