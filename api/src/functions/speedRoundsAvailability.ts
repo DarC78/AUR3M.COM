@@ -4,6 +4,7 @@ import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
 import { matchSlotsForSession } from "../shared/followUpScheduling";
 import { AvailabilityPeriod, ensureRelationshipForPair, getSessionRelationshipContext } from "../shared/speedRoundFollowUp";
+import { logUserAction } from "../shared/userActionLogs";
 
 type AvailabilitySlot = {
   date: string;
@@ -163,7 +164,45 @@ export async function speedRoundsAvailability(
         `);
     }
 
-    await matchSlotsForSession(body.session_id);
+    const matchResult = await matchSlotsForSession(body.session_id);
+
+    await logUserAction(pool, {
+      actorUserId: authUserId,
+      targetUserId:
+        session.participantAUserId.toLowerCase() === authUserId.toLowerCase()
+          ? session.participantBUserId
+          : session.participantAUserId,
+      sessionId: body.session_id,
+      relationshipId,
+      entityType: "speed_round_session",
+      entityId: body.session_id,
+      actionType: "speed_round_availability_submitted",
+      metadata: {
+        slots_saved: body.slots.length,
+        slots: body.slots,
+        match_result: matchResult.status
+      }
+    });
+
+    if (matchResult.status === "scheduled") {
+      await logUserAction(pool, {
+        actorUserId: authUserId,
+        targetUserId:
+          session.participantAUserId.toLowerCase() === authUserId.toLowerCase()
+            ? session.participantBUserId
+            : session.participantAUserId,
+        sessionId: body.session_id,
+        relationshipId,
+        entityType: "scheduled_call",
+        entityId: matchResult.scheduledCallId,
+        actionType: "speed_round_follow_up_scheduled",
+        metadata: {
+          scheduled_call_id: matchResult.scheduledCallId,
+          scheduled_at: matchResult.scheduledAt,
+          room_name: matchResult.roomName
+        }
+      });
+    }
 
     return {
       status: 200,

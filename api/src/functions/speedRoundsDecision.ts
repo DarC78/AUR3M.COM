@@ -9,6 +9,7 @@ import {
   normalizeRelationshipPair,
   updateRelationshipStage
 } from "../shared/speedRoundFollowUp";
+import { logUserAction } from "../shared/userActionLogs";
 
 type SpeedRoundDecisionRequest = {
   session_id?: string;
@@ -77,7 +78,13 @@ export async function speedRoundsDecision(
         ? session.participantAId
         : session.participantBId;
 
-    await ensureRelationshipForPair(pool, session.participantAUserId, session.participantBUserId, body.session_id, "3min");
+    const relationshipId = session.relationshipId ?? await ensureRelationshipForPair(
+      pool,
+      session.participantAUserId,
+      session.participantBUserId,
+      body.session_id,
+      "3min"
+    );
 
     await pool.request()
       .input("session_id", sql.UniqueIdentifier, body.session_id)
@@ -115,9 +122,9 @@ export async function speedRoundsDecision(
     const mutualYes = bothDecided && decisions.every((item) => item.decision === "yes");
 
     if (bothDecided) {
-      if (mutualYes) {
-        const { userAId, userBId } = normalizeRelationshipPair(session.participantAUserId, session.participantBUserId);
+      const { userAId, userBId } = normalizeRelationshipPair(session.participantAUserId, session.participantBUserId);
 
+      if (mutualYes) {
         await pool.request()
           .input("user_a_id", sql.UniqueIdentifier, userAId)
           .input("user_b_id", sql.UniqueIdentifier, userBId)
@@ -133,14 +140,6 @@ export async function speedRoundsDecision(
             END;
           `);
 
-        const relationshipId = session.relationshipId ?? await ensureRelationshipForPair(
-          pool,
-          session.participantAUserId,
-          session.participantBUserId,
-          body.session_id,
-          "3min"
-        );
-
         if (session.sessionTier === "15min") {
           await updateRelationshipStage(pool, relationshipId, "15min", body.session_id);
         } else if (session.sessionTier === "60min") {
@@ -151,13 +150,15 @@ export async function speedRoundsDecision(
           await updateRelationshipStage(pool, relationshipId, "3min", body.session_id);
         }
       } else {
-        const relationshipId = session.relationshipId ?? await ensureRelationshipForPair(
-          pool,
-          session.participantAUserId,
-          session.participantBUserId,
-          body.session_id,
-          "3min"
-        );
+        await pool.request()
+          .input("user_a_id", sql.UniqueIdentifier, userAId)
+          .input("user_b_id", sql.UniqueIdentifier, userBId)
+          .query(`
+            DELETE FROM dbo.connections
+            WHERE user_a_id = @user_a_id
+              AND user_b_id = @user_b_id;
+          `);
+
         await updateRelationshipStage(pool, relationshipId, "passed", body.session_id);
 
         const yesParticipantIds = new Set(
@@ -175,6 +176,25 @@ export async function speedRoundsDecision(
         }
       }
     }
+
+    await logUserAction(pool, {
+      actorUserId: authUserId,
+      targetUserId:
+        session.participantAUserId.toLowerCase() === authUserId.toLowerCase()
+          ? session.participantBUserId
+          : session.participantAUserId,
+      sessionId: body.session_id,
+      relationshipId,
+      entityType: "speed_round_session",
+      entityId: body.session_id,
+      actionType: "speed_round_decision_submitted",
+      metadata: {
+        decision: body.decision,
+        session_tier: session.sessionTier,
+        both_decided: bothDecided,
+        mutual_yes: mutualYes
+      }
+    });
 
     return {
       status: 200,

@@ -3,6 +3,7 @@ import sql from "mssql";
 import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
 import { ensureRelationshipForPair, getSessionRelationshipContext } from "../shared/speedRoundFollowUp";
+import { logUserAction } from "../shared/userActionLogs";
 
 type SpeedRoundsFeedbackRequest = {
   session_id?: string;
@@ -195,6 +196,25 @@ export async function speedRoundsFeedback(
           WHERE id = @reviewed_user_id;
         END;
       `);
+
+    await logUserAction(pool, {
+      actorUserId: authUserId,
+      targetUserId:
+        session.participantAUserId.toLowerCase() === authUserId.toLowerCase()
+          ? session.participantBUserId
+          : session.participantAUserId,
+      sessionId: body.session_id,
+      relationshipId,
+      entityType: "speed_round_session",
+      entityId: body.session_id,
+      actionType: "speed_round_feedback_submitted",
+      metadata: {
+        was_professional: body.was_professional ?? null,
+        felt_unsafe: body.felt_unsafe ?? null,
+        private_note_present: Boolean(privateNote),
+        relationship_stage: session.relationshipStage
+      }
+    });
 
     return {
       status: 200,

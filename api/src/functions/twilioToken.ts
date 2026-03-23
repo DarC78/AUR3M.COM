@@ -59,7 +59,9 @@ export async function twilioToken(
       .input("room_name", sql.NVarChar(100), roomName)
       .input("user_id", sql.UniqueIdentifier, auth.sub)
       .query(`
-        SELECT TOP 1 s.duration_seconds
+        SELECT TOP 1
+          s.duration_seconds,
+          COALESCE(s.scheduled_at, s.created_at) AS starts_at
         FROM dbo.speed_round_sessions s
         INNER JOIN dbo.speed_round_participants pa
           ON pa.id = s.participant_a_id
@@ -69,13 +71,37 @@ export async function twilioToken(
           AND (@user_id = pa.user_id OR @user_id = pb.user_id);
       `);
 
-    const session = sessionResult.recordset[0] as { duration_seconds: number } | undefined;
+    const session = sessionResult.recordset[0] as
+      | { duration_seconds: number; starts_at: Date }
+      | undefined;
 
     if (!session) {
       return {
         status: 404,
         jsonBody: {
           error: "Room not found for this user."
+        }
+      };
+    }
+
+    const startsAt = new Date(session.starts_at);
+    const endsAt = new Date(startsAt.getTime() + (session.duration_seconds * 1000));
+    const now = new Date();
+
+    if (now < startsAt) {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "This session has not started yet."
+        }
+      };
+    }
+
+    if (now >= endsAt) {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "This session has already ended."
         }
       };
     }

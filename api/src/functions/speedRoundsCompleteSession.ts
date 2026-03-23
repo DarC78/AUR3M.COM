@@ -3,6 +3,7 @@ import sql from "mssql";
 import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
 import { SPEED_ROUND_BACKEND_VERSION } from "../shared/speedRoundBuildInfo";
+import { logUserAction } from "../shared/userActionLogs";
 
 type CompleteSessionRequest = {
   session_id?: string;
@@ -101,6 +102,17 @@ export async function speedRoundsCompleteSession(
               AND s.status IN ('matched', 'active')
           );
       `);
+
+    await logUserAction(pool, {
+      actorUserId: authUserId,
+      sessionId: body.session_id,
+      entityType: "speed_round_session",
+      entityId: body.session_id,
+      actionType: "speed_round_session_completed",
+      metadata: {
+        previous_status: session.status
+      }
+    });
 
     return {
       status: 200,

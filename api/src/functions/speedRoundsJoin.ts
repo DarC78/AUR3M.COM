@@ -5,6 +5,7 @@ import { getDbPool } from "../shared/db";
 import { syncSpeedRoundEventStatuses } from "../shared/speedRoundEvents";
 import { syncSpeedRoundSessionStatuses } from "../shared/speedRoundSessions";
 import { ensureRelationshipForPair } from "../shared/speedRoundFollowUp";
+import { logUserAction } from "../shared/userActionLogs";
 
 type JoinSpeedRoundRequest = {
   event_id?: string;
@@ -170,6 +171,18 @@ export async function speedRoundsJoin(
       | undefined;
 
     if (existingSession && ["matched", "active"].includes(existingSession.status)) {
+      await logUserAction(pool, {
+        actorUserId: authUserId,
+        sessionId: existingSession.id,
+        entityType: "speed_round_session",
+        entityId: existingSession.id,
+        actionType: "speed_round_matched",
+        metadata: {
+          room_name: existingSession.room_name,
+          source: "existing_open_session"
+        }
+      });
+
       return {
         status: 200,
         jsonBody: {
@@ -360,6 +373,16 @@ export async function speedRoundsJoin(
     }
 
     if (!session) {
+      await logUserAction(pool, {
+        actorUserId: authUserId,
+        entityType: "speed_round_event",
+        entityId: body.event_id,
+        actionType: "speed_round_waiting",
+        metadata: {
+          participant_id: currentParticipant.id
+        }
+      });
+
       return {
         status: 200,
         jsonBody: {
@@ -370,7 +393,31 @@ export async function speedRoundsJoin(
     }
 
     if (partnerUserId) {
-      await ensureRelationshipForPair(pool, authUserId, partnerUserId, session.id, "3min");
+      const relationshipId = await ensureRelationshipForPair(pool, authUserId, partnerUserId, session.id, "3min");
+
+      await logUserAction(pool, {
+        actorUserId: authUserId,
+        targetUserId: partnerUserId,
+        sessionId: session.id,
+        relationshipId,
+        entityType: "speed_round_session",
+        entityId: session.id,
+        actionType: "speed_round_matched",
+        metadata: {
+          room_name: session.room_name,
+          event_id: body.event_id
+        }
+      });
+    } else {
+      await logUserAction(pool, {
+        actorUserId: authUserId,
+        entityType: "speed_round_event",
+        entityId: body.event_id,
+        actionType: "speed_round_joined_queue",
+        metadata: {
+          participant_id: currentParticipant.id
+        }
+      });
     }
 
     return {
