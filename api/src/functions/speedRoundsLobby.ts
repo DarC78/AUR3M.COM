@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import sql from "mssql";
 import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
+import { SPEED_ROUND_BACKEND_VERSION } from "../shared/speedRoundBuildInfo";
 import { syncSpeedRoundSessionStatuses } from "../shared/speedRoundSessions";
 
 function badRequest(message: string): HttpResponseInit {
@@ -17,7 +18,7 @@ export async function speedRoundsLobby(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  context.log("Speed round lobby request received.");
+  context.log(`Speed round lobby request received. version=${SPEED_ROUND_BACKEND_VERSION}`);
 
   try {
     requireAuth(request);
@@ -75,11 +76,15 @@ export async function speedRoundsLobby(
 
     return {
       status: 200,
+      headers: {
+        "x-aur3m-speed-rounds-version": SPEED_ROUND_BACKEND_VERSION
+      },
       jsonBody: {
         lobby_users: lobbyUsers,
         matching_users: matchingUsers,
         total_lobby: lobbyUsers.length,
-        total_matching: matchingUsers.length
+        total_matching: matchingUsers.length,
+        debug_version: SPEED_ROUND_BACKEND_VERSION
       }
     };
   } catch (error) {

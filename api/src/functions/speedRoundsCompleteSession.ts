@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import sql from "mssql";
 import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
+import { SPEED_ROUND_BACKEND_VERSION } from "../shared/speedRoundBuildInfo";
 
 type CompleteSessionRequest = {
   session_id?: string;
@@ -20,7 +21,7 @@ export async function speedRoundsCompleteSession(
   request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
-  context.log("Speed round complete session request received.");
+  context.log(`Speed round complete session request received. version=${SPEED_ROUND_BACKEND_VERSION}`);
 
   let authUserId: string;
 
@@ -103,9 +104,13 @@ export async function speedRoundsCompleteSession(
 
     return {
       status: 200,
+      headers: {
+        "x-aur3m-speed-rounds-version": SPEED_ROUND_BACKEND_VERSION
+      },
       jsonBody: {
         success: true,
-        session_id: body.session_id
+        session_id: body.session_id,
+        debug_version: SPEED_ROUND_BACKEND_VERSION
       }
     };
   } catch (error) {
