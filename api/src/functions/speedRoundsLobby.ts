@@ -49,12 +49,18 @@ export async function speedRoundsLobby(
           u.gender,
           u.age_bracket,
           p.joined_at,
-          p.status AS list_type
+          CASE
+            WHEN p.status = 'waiting' THEN 'waiting'
+            ELSE 'browsing'
+          END AS list_type
         FROM dbo.speed_round_participants p
         INNER JOIN dbo.users u
           ON u.id = p.user_id
         WHERE p.event_id = @event_id
-          AND p.status IN ('browsing', 'waiting')
+          AND (
+            p.status = 'waiting'
+            OR (p.status <> 'waiting' AND p.lobby_heartbeat_at IS NOT NULL)
+          )
           AND NOT EXISTS (
             SELECT 1
             FROM dbo.speed_round_sessions s
