@@ -149,30 +149,31 @@ export async function ensureRelationshipForPair(
   stage: RelationshipStage = "3min"
 ): Promise<string> {
   const { userAId, userBId } = normalizeRelationshipPair(userA, userB);
+  const existingResult = await pool.request()
+    .input("user_a_id", sql.UniqueIdentifier, userAId)
+    .input("user_b_id", sql.UniqueIdentifier, userBId)
+    .query(`
+      SELECT TOP 1 id
+      FROM dbo.relationships
+      WHERE user_a_id = @user_a_id
+        AND user_b_id = @user_b_id;
+    `);
+
+  const existing = existingResult.recordset[0] as { id: string } | undefined;
+
+  if (existing) {
+    return existing.id;
+  }
+
   const result = await pool.request()
     .input("user_a_id", sql.UniqueIdentifier, userAId)
     .input("user_b_id", sql.UniqueIdentifier, userBId)
     .input("latest_session_id", sql.UniqueIdentifier, latestSessionId ?? null)
     .input("stage", sql.NVarChar(30), stage)
     .query(`
-      MERGE dbo.relationships AS target
-      USING (
-        SELECT
-          @user_a_id AS user_a_id,
-          @user_b_id AS user_b_id,
-          @latest_session_id AS latest_session_id,
-          @stage AS stage
-      ) AS source
-      ON target.user_a_id = source.user_a_id
-         AND target.user_b_id = source.user_b_id
-      WHEN MATCHED THEN
-        UPDATE SET
-          latest_session_id = COALESCE(source.latest_session_id, target.latest_session_id),
-          last_updated = SYSUTCDATETIME()
-      WHEN NOT MATCHED THEN
-        INSERT (user_a_id, user_b_id, latest_session_id, stage)
-        VALUES (source.user_a_id, source.user_b_id, source.latest_session_id, source.stage)
-      OUTPUT INSERTED.id;
+      INSERT INTO dbo.relationships (user_a_id, user_b_id, latest_session_id, stage)
+      OUTPUT INSERTED.id
+      VALUES (@user_a_id, @user_b_id, @latest_session_id, @stage);
     `);
 
   return (result.recordset[0] as { id: string }).id;
