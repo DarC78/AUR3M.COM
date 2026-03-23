@@ -101,18 +101,31 @@ export async function speedRoundsJoin(
           WHERE event_id = @event_id AND user_id = @user_id
         )
         BEGIN
-          INSERT INTO dbo.speed_round_participants (event_id, user_id)
-          VALUES (@event_id, @user_id);
+          INSERT INTO dbo.speed_round_participants (
+            event_id,
+            user_id,
+            status,
+            lobby_heartbeat_at
+          )
+          VALUES (
+            @event_id,
+            @user_id,
+            'waiting',
+            SYSUTCDATETIME()
+          );
         END;
         ELSE
         BEGIN
           UPDATE p
           SET p.status = 'waiting',
-              p.joined_at = SYSUTCDATETIME()
+              p.joined_at = CASE
+                              WHEN p.status = 'waiting' THEN p.joined_at
+                              ELSE SYSUTCDATETIME()
+                            END,
+              p.lobby_heartbeat_at = SYSUTCDATETIME()
           FROM dbo.speed_round_participants p
           WHERE p.event_id = @event_id
             AND p.user_id = @user_id
-            AND p.status IN ('matched', 'completed', 'left')
             AND NOT EXISTS (
               SELECT 1
               FROM dbo.speed_round_sessions s

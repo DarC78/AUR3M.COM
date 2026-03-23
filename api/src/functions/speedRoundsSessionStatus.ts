@@ -101,6 +101,17 @@ export async function speedRoundsSessionStatus(
       };
     }
 
+    if (participant.status === "browsing") {
+      return {
+        status: 200,
+        jsonBody: {
+          joined: false,
+          matched: false,
+          status: "browsing"
+        }
+      };
+    }
+
     return {
       status: 200,
       jsonBody: {

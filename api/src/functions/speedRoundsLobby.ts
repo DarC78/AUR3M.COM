@@ -46,30 +46,38 @@ export async function speedRoundsLobby(
           u.gender,
           u.age_bracket,
           p.joined_at,
-          COUNT(*) OVER () AS total_count
+          p.status AS list_type
         FROM dbo.speed_round_participants p
         INNER JOIN dbo.users u
           ON u.id = p.user_id
         WHERE p.event_id = @event_id
-          AND p.status = 'waiting'
+          AND p.status IN ('browsing', 'waiting')
           AND NOT EXISTS (
             SELECT 1
             FROM dbo.speed_round_sessions s
-            WHERE s.participant_a_id = p.id
-               OR s.participant_b_id = p.id
+            WHERE (s.participant_a_id = p.id OR s.participant_b_id = p.id)
+              AND s.status IN ('matched', 'active')
           )
-        ORDER BY p.joined_at ASC;
+        ORDER BY
+          CASE WHEN p.status = 'browsing' THEN 0 ELSE 1 END ASC,
+          p.joined_at ASC;
       `);
 
-    const users = (result.recordset as Array<Record<string, unknown> & { total_count?: number }>)
-      .map(({ total_count, ...user }) => user);
-    const total = (result.recordset[0] as { total_count?: number } | undefined)?.total_count ?? 0;
+    const rows = result.recordset as Array<Record<string, unknown> & { list_type: string }>;
+    const lobbyUsers = rows
+      .filter((row) => row.list_type === "browsing")
+      .map(({ list_type, ...user }) => user);
+    const matchingUsers = rows
+      .filter((row) => row.list_type === "waiting")
+      .map(({ list_type, ...user }) => user);
 
     return {
       status: 200,
       jsonBody: {
-        users,
-        total
+        lobby_users: lobbyUsers,
+        matching_users: matchingUsers,
+        total_lobby: lobbyUsers.length,
+        total_matching: matchingUsers.length
       }
     };
   } catch (error) {
