@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import sql from "mssql";
+import Stripe from "stripe";
 import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
 import { getStripeClient, getTierConfig } from "../shared/stripe";
@@ -100,11 +101,10 @@ export async function paymentsCreateCheckout(
         `);
     }
 
-    const session = await stripe.checkout.sessions.create({
+    const sessionConfig: Stripe.Checkout.SessionCreateParams = {
       customer: stripeCustomerId,
       mode: tierConfig.mode,
       allow_promotion_codes: true,
-      payment_method_collection: "if_required",
       line_items: [{ price: tierConfig.priceId, quantity: 1 }],
       success_url: "https://aur3m.com/dashboard?payment=success",
       cancel_url: "https://aur3m.com/dashboard?payment=cancelled",
@@ -112,7 +112,16 @@ export async function paymentsCreateCheckout(
         userId: user.id,
         tier: body.tier
       }
-    });
+    };
+
+    const session = await stripe.checkout.sessions.create(
+      tierConfig.mode === "subscription"
+        ? {
+            ...sessionConfig,
+            payment_method_collection: "if_required"
+          }
+        : sessionConfig
+    );
 
     return {
       status: 200,
