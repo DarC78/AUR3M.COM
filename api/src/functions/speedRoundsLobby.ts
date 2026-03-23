@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import sql from "mssql";
 import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
+import { syncSpeedRoundSessionStatuses } from "../shared/speedRoundSessions";
 
 function badRequest(message: string): HttpResponseInit {
   return {
@@ -37,6 +38,7 @@ export async function speedRoundsLobby(
 
   try {
     const pool = await getDbPool();
+    await syncSpeedRoundSessionStatuses(pool);
     const result = await pool.request()
       .input("event_id", sql.UniqueIdentifier, eventId)
       .query(`

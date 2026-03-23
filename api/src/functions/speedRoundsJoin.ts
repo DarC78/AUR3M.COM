@@ -3,6 +3,7 @@ import sql from "mssql";
 import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
 import { syncSpeedRoundEventStatuses } from "../shared/speedRoundEvents";
+import { syncSpeedRoundSessionStatuses } from "../shared/speedRoundSessions";
 import { ensureRelationshipForPair } from "../shared/speedRoundFollowUp";
 
 type JoinSpeedRoundRequest = {
@@ -56,6 +57,7 @@ export async function speedRoundsJoin(
   try {
     const pool = await getDbPool();
     await syncSpeedRoundEventStatuses(pool);
+    await syncSpeedRoundSessionStatuses(pool);
 
     const eventResult = await pool.request()
       .input("event_id", sql.UniqueIdentifier, body.event_id)

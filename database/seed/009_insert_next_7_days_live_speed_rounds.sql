@@ -21,7 +21,15 @@ events_to_insert AS (
         ends_at = DATEADD(DAY, 1, CAST(p.event_date AS DATETIME2(7))),
         room_name = CONCAT('sr-', CONVERT(CHAR(8), p.event_date, 112), '-live-all-day'),
         capacity = 200,
-        status = CAST('live' AS NVARCHAR(20))
+        status = CAST(
+            CASE
+                WHEN DATEADD(DAY, 1, CAST(p.event_date AS DATETIME2(7))) <= SYSUTCDATETIME() THEN 'completed'
+                WHEN CAST(p.event_date AS DATETIME2(7)) <= SYSUTCDATETIME()
+                 AND DATEADD(DAY, 1, CAST(p.event_date AS DATETIME2(7))) > SYSUTCDATETIME() THEN 'live'
+                ELSE 'scheduled'
+            END
+            AS NVARCHAR(20)
+        )
     FROM prepared p
 )
 INSERT INTO dbo.speed_round_events (
