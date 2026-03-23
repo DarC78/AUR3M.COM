@@ -76,18 +76,29 @@ export async function matchSlotsForSession(sessionId: string): Promise<MatchSlot
     return { status: "waiting_for_availability" };
   }
 
+  const nextTier = context.sessionTier === "3min" ? "15min" : context.sessionTier === "15min" ? "60min" : "date";
+  const durationMinutes = nextTier === "15min" ? 15 : nextTier === "60min" ? 60 : 120;
+
   const existingCallResult = await pool.request()
     .input("session_id", sql.UniqueIdentifier, sessionId)
+    .input("next_tier", sql.NVarChar(10), nextTier)
     .query(`
-      SELECT TOP 1 id, scheduled_at, room_name
-      FROM dbo.scheduled_calls
-      WHERE session_id = @session_id
-        AND status IN ('scheduled', 'rescheduled', 'completed')
-      ORDER BY created_at DESC;
+      SELECT TOP 1
+        sc.id,
+        sc.scheduled_at,
+        sc.room_name,
+        child.id AS follow_up_session_id
+      FROM dbo.scheduled_calls sc
+      INNER JOIN dbo.speed_round_sessions child
+        ON child.id = sc.session_id
+      WHERE child.parent_session_id = @session_id
+        AND child.session_tier = @next_tier
+        AND sc.status IN ('scheduled', 'rescheduled', 'completed')
+      ORDER BY sc.created_at DESC;
     `);
 
   const existingCall = existingCallResult.recordset[0] as
-    | { id: string; scheduled_at: string; room_name: string }
+    | { id: string; scheduled_at: string; room_name: string; follow_up_session_id: string }
     | undefined;
 
   if (existingCall) {
@@ -98,6 +109,21 @@ export async function matchSlotsForSession(sessionId: string): Promise<MatchSlot
       roomName: existingCall.room_name
     };
   }
+
+  const existingFollowUpSessionResult = await pool.request()
+    .input("session_id", sql.UniqueIdentifier, sessionId)
+    .input("next_tier", sql.NVarChar(10), nextTier)
+    .query(`
+      SELECT TOP 1 id, scheduled_at, room_name
+      FROM dbo.speed_round_sessions
+      WHERE parent_session_id = @session_id
+        AND session_tier = @next_tier
+      ORDER BY created_at DESC;
+    `);
+
+  const existingFollowUpSession = existingFollowUpSessionResult.recordset[0] as
+    | { id: string; scheduled_at: string | null; room_name: string }
+    | undefined;
 
   const overlapResult = await pool.request()
     .input("session_id", sql.UniqueIdentifier, sessionId)
@@ -149,48 +175,56 @@ export async function matchSlotsForSession(sessionId: string): Promise<MatchSlot
     return { status: "no_common_slots" };
   }
 
-  const scheduledAt = overlap.scheduledAtA;
-  const nextTier = context.sessionTier === "3min" ? "15min" : context.sessionTier === "15min" ? "60min" : "date";
-  const durationMinutes = nextTier === "15min" ? 15 : nextTier === "60min" ? 60 : 120;
-  const roomName = `sr-followup-${sessionId.slice(0, 8)}-${nextTier}`;
+  let scheduledAt = overlap.scheduledAtA;
+  let roomName = `sr-followup-${sessionId.slice(0, 8)}-${nextTier}`;
+  let followUpSessionId: string;
 
-  const followUpSessionResult = await pool.request()
-    .input("event_id", sql.UniqueIdentifier, null)
-    .input("participant_a_id", sql.UniqueIdentifier, context.participantAId)
-    .input("participant_b_id", sql.UniqueIdentifier, context.participantBId)
-    .input("room_name", sql.NVarChar(100), roomName)
-    .input("status", sql.NVarChar(20), "matched")
-    .input("session_tier", sql.NVarChar(10), nextTier)
-    .input("duration_seconds", sql.Int, durationMinutes * 60)
-    .input("scheduled_at", sql.DateTime2, scheduledAt)
-    .input("parent_session_id", sql.UniqueIdentifier, sessionId)
-    .query(`
-      INSERT INTO dbo.speed_round_sessions (
-        event_id,
-        participant_a_id,
-        participant_b_id,
-        room_name,
-        status,
-        session_tier,
-        duration_seconds,
-        scheduled_at,
-        parent_session_id
-      )
-      OUTPUT INSERTED.id
-      VALUES (
-        @event_id,
-        @participant_a_id,
-        @participant_b_id,
-        @room_name,
-        @status,
-        @session_tier,
-        @duration_seconds,
-        @scheduled_at,
-        @parent_session_id
-      );
-    `);
+  if (existingFollowUpSession) {
+    followUpSessionId = existingFollowUpSession.id;
+    roomName = existingFollowUpSession.room_name;
 
-  const followUpSessionId = (followUpSessionResult.recordset[0] as { id: string }).id;
+    if (existingFollowUpSession.scheduled_at) {
+      scheduledAt = new Date(existingFollowUpSession.scheduled_at);
+    }
+  } else {
+    const followUpSessionResult = await pool.request()
+      .input("event_id", sql.UniqueIdentifier, null)
+      .input("participant_a_id", sql.UniqueIdentifier, context.participantAId)
+      .input("participant_b_id", sql.UniqueIdentifier, context.participantBId)
+      .input("room_name", sql.NVarChar(100), roomName)
+      .input("status", sql.NVarChar(20), "matched")
+      .input("session_tier", sql.NVarChar(10), nextTier)
+      .input("duration_seconds", sql.Int, durationMinutes * 60)
+      .input("scheduled_at", sql.DateTime2, scheduledAt)
+      .input("parent_session_id", sql.UniqueIdentifier, sessionId)
+      .query(`
+        INSERT INTO dbo.speed_round_sessions (
+          event_id,
+          participant_a_id,
+          participant_b_id,
+          room_name,
+          status,
+          session_tier,
+          duration_seconds,
+          scheduled_at,
+          parent_session_id
+        )
+        OUTPUT INSERTED.id
+        VALUES (
+          @event_id,
+          @participant_a_id,
+          @participant_b_id,
+          @room_name,
+          @status,
+          @session_tier,
+          @duration_seconds,
+          @scheduled_at,
+          @parent_session_id
+        );
+      `);
+
+    followUpSessionId = (followUpSessionResult.recordset[0] as { id: string }).id;
+  }
 
   const scheduledCallResult = await pool.request()
     .input("relationship_id", sql.UniqueIdentifier, context.relationshipId)
