@@ -1,6 +1,7 @@
 import sql from "mssql";
 import { getDbPool } from "./db";
 import { enqueueUpcomingCallReminderEmail, sendFollowUpCallScheduledEmail, sendNoCommonAvailabilityEmail } from "./email";
+import { getBusyIntervalsForUsers, usersAreAvailableForInterval } from "./schedulingConflicts";
 import { convertLocalSlotToUtc } from "./timezones";
 import {
   getSessionRelationshipContext,
@@ -167,7 +168,28 @@ export async function matchSlotsForSession(sessionId: string): Promise<MatchSlot
     .filter((row) => row.scheduledAtA.getTime() === row.scheduledAtB.getTime())
     .sort((left, right) => left.scheduledAtA.getTime() - right.scheduledAtA.getTime());
 
-  const overlap = overlappingSlots[0];
+  const earliestCandidate = overlappingSlots[0];
+
+  if (!earliestCandidate) {
+    await sendNoCommonAvailabilityEmail(context.participantAEmail, context.participantBAlias);
+    await sendNoCommonAvailabilityEmail(context.participantBEmail, context.participantAAlias);
+    return { status: "no_common_slots" };
+  }
+
+  const latestCandidate = overlappingSlots[overlappingSlots.length - 1];
+  const busyIntervals = await getBusyIntervalsForUsers(
+    pool,
+    [context.participantAUserId, context.participantBUserId],
+    earliestCandidate.scheduledAtA,
+    latestCandidate.scheduledAtA
+  );
+
+  const overlap = overlappingSlots.find((candidate) => usersAreAvailableForInterval(
+    [context.participantAUserId, context.participantBUserId],
+    candidate.scheduledAtA,
+    durationMinutes,
+    busyIntervals
+  ));
 
   if (!overlap) {
     await sendNoCommonAvailabilityEmail(context.participantAEmail, context.participantBAlias);
@@ -182,10 +204,14 @@ export async function matchSlotsForSession(sessionId: string): Promise<MatchSlot
   if (existingFollowUpSession) {
     followUpSessionId = existingFollowUpSession.id;
     roomName = existingFollowUpSession.room_name;
-
-    if (existingFollowUpSession.scheduled_at) {
-      scheduledAt = new Date(existingFollowUpSession.scheduled_at);
-    }
+    await pool.request()
+      .input("session_id", sql.UniqueIdentifier, followUpSessionId)
+      .input("scheduled_at", sql.DateTime2, scheduledAt)
+      .query(`
+        UPDATE dbo.speed_round_sessions
+        SET scheduled_at = @scheduled_at
+        WHERE id = @session_id;
+      `);
   } else {
     const followUpSessionResult = await pool.request()
       .input("event_id", sql.UniqueIdentifier, null)

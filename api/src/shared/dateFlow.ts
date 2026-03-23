@@ -2,6 +2,7 @@ import sql from "mssql";
 import type { ConnectionPool } from "mssql";
 import { sendDateBookedEmail, sendDatePaymentReceivedEmail, sendDateRefundIssuedEmail, sendDateSlotsOpenEmail, sendNoCommonAvailabilityEmail } from "./email";
 import { getDbPool } from "./db";
+import { getBusyIntervalsForUsers, usersAreAvailableForInterval } from "./schedulingConflicts";
 
 type RelationshipParticipantContext = {
   relationshipId: string;
@@ -335,7 +336,24 @@ export async function tryBookGoldDate(relationshipId: string): Promise<"waiting"
       ORDER BY a.slot_date ASC, a.slot_time ASC;
     `);
 
-  const slot = (availabilityResult.recordset[0] as { slot_date: Date; slot_time: string } | undefined);
+  const matchingSlots = availabilityResult.recordset as Array<{ slot_date: Date; slot_time: string }>;
+
+  if (matchingSlots.length === 0) {
+    await sendNoCommonAvailabilityEmail(relationship.userAEmail, relationship.userBAlias);
+    await sendNoCommonAvailabilityEmail(relationship.userBEmail, relationship.userAAlias);
+    return "no_match";
+  }
+
+  const earliestSlot = matchingSlots[0];
+  const latestSlot = matchingSlots[matchingSlots.length - 1];
+  const earliestStart = new Date(`${earliestSlot.slot_date.toISOString().slice(0, 10)}T${earliestSlot.slot_time}:00.000Z`);
+  const latestStart = new Date(`${latestSlot.slot_date.toISOString().slice(0, 10)}T${latestSlot.slot_time}:00.000Z`);
+  const busyIntervals = await getBusyIntervalsForUsers(pool, [relationship.userAId, relationship.userBId], earliestStart, latestStart);
+
+  const slot = matchingSlots.find((candidate) => {
+    const scheduledAt = new Date(`${candidate.slot_date.toISOString().slice(0, 10)}T${candidate.slot_time}:00.000Z`);
+    return usersAreAvailableForInterval([relationship.userAId, relationship.userBId], scheduledAt, 120, busyIntervals);
+  });
 
   if (!slot) {
     await sendNoCommonAvailabilityEmail(relationship.userAEmail, relationship.userBAlias);
