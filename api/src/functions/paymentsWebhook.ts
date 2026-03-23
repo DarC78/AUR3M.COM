@@ -5,6 +5,7 @@ import { getDbPool } from "../shared/db";
 import { markDatePaymentPaid } from "../shared/dateFlow";
 import { sendMembershipUpgradeEmail } from "../shared/email";
 import { getCurrentTierForMembership, getStripeClient, getStripeWebhookSecret } from "../shared/stripe";
+import { updateUserVerificationFromStripeSession } from "../shared/userVerifications";
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
   const userId = session.metadata?.userId;
@@ -130,6 +131,26 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
     `);
 }
 
+async function handleIdentityVerificationUpdated(
+  session: Stripe.Identity.VerificationSession,
+  status: "processing" | "verified" | "requires_input" | "canceled"
+): Promise<void> {
+  const pool = await getDbPool();
+  await updateUserVerificationFromStripeSession(
+    pool,
+    session.id,
+    status,
+    {
+      last_verification_report: typeof session.last_verification_report === "string"
+        ? session.last_verification_report
+        : session.last_verification_report?.id ?? null,
+      verified_outputs: session.verified_outputs ?? null
+    },
+    session.last_error?.code ?? null,
+    session.last_error?.reason ?? null
+  );
+}
+
 export async function paymentsWebhook(
   request: HttpRequest,
   context: InvocationContext
@@ -164,6 +185,30 @@ export async function paymentsWebhook(
         break;
       case "customer.subscription.deleted":
         await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
+        break;
+      case "identity.verification_session.processing":
+        await handleIdentityVerificationUpdated(
+          event.data.object as Stripe.Identity.VerificationSession,
+          "processing"
+        );
+        break;
+      case "identity.verification_session.verified":
+        await handleIdentityVerificationUpdated(
+          event.data.object as Stripe.Identity.VerificationSession,
+          "verified"
+        );
+        break;
+      case "identity.verification_session.requires_input":
+        await handleIdentityVerificationUpdated(
+          event.data.object as Stripe.Identity.VerificationSession,
+          "requires_input"
+        );
+        break;
+      case "identity.verification_session.canceled":
+        await handleIdentityVerificationUpdated(
+          event.data.object as Stripe.Identity.VerificationSession,
+          "canceled"
+        );
         break;
       default:
         context.log(`Unhandled Stripe event: ${event.type}`);

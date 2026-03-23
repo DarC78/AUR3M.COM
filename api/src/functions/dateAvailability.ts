@@ -3,6 +3,7 @@ import sql from "mssql";
 import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
 import { getDatePaymentState, tryBookGoldDate } from "../shared/dateFlow";
+import { getRelationshipVerificationState } from "../shared/userVerifications";
 
 type DateAvailabilityRequest = {
   relationship_id?: string;
@@ -65,6 +66,8 @@ export async function dateAvailability(
       return { status: 403, jsonBody: { error: "Both users haven't paid yet." } };
     }
 
+    const verificationState = await getRelationshipVerificationState(pool, body.relationship_id, auth.sub);
+
     const existingBooking = await pool.request()
       .input("relationship_id", sql.UniqueIdentifier, body.relationship_id)
       .query(`
@@ -108,9 +111,21 @@ export async function dateAvailability(
         `);
     }
 
-    await tryBookGoldDate(body.relationship_id);
+    const bookingStatus = await tryBookGoldDate(body.relationship_id);
 
-    return { status: 200, jsonBody: { success: true, slots_saved: body.slots.length } };
+    return {
+      status: 200,
+      jsonBody: {
+        success: true,
+        slots_saved: body.slots.length,
+        booking_status: bookingStatus,
+        verification: {
+          user_verified: verificationState.userVerified,
+          partner_verified: verificationState.partnerVerified,
+          both_verified: verificationState.bothVerified
+        }
+      }
+    };
   } catch (error) {
     context.error("Date availability failed.", error);
     return { status: 500, jsonBody: { error: error instanceof Error ? error.message : "Unknown date availability error" } };

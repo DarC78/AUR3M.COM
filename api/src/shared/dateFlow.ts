@@ -3,6 +3,7 @@ import type { ConnectionPool } from "mssql";
 import { sendDateBookedEmail, sendDatePaymentReceivedEmail, sendDateRefundIssuedEmail, sendDateSlotsOpenEmail, sendNoCommonAvailabilityEmail } from "./email";
 import { getDbPool } from "./db";
 import { getBusyIntervalsForUsers, usersAreAvailableForInterval } from "./schedulingConflicts";
+import { getRelationshipVerificationState } from "./userVerifications";
 
 type RelationshipParticipantContext = {
   relationshipId: string;
@@ -284,7 +285,7 @@ export async function getDatePaymentState(
   };
 }
 
-export async function tryBookGoldDate(relationshipId: string): Promise<"waiting" | "no_match" | "booked"> {
+export async function tryBookGoldDate(relationshipId: string): Promise<"waiting" | "waiting_for_verification" | "no_match" | "booked"> {
   const pool = await getDbPool();
   const relationship = await getRelationshipParticipants(pool, relationshipId);
 
@@ -303,6 +304,11 @@ export async function tryBookGoldDate(relationshipId: string): Promise<"waiting"
   const paidCount = (paymentRows.recordset as Array<{ status: string }>).filter((item) => item.status === "paid").length;
   if (paidCount < 2) {
     return "waiting";
+  }
+
+  const verificationState = await getRelationshipVerificationState(pool, relationshipId, relationship.userAId);
+  if (!verificationState.bothVerified) {
+    return "waiting_for_verification";
   }
 
   const bookingResult = await pool.request()

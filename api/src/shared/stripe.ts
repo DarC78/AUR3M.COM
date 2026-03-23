@@ -21,6 +21,10 @@ export function getStripeClient(): Stripe {
   return new Stripe(getRequiredEnv("STRIPE_SECRET_KEY"));
 }
 
+export function getPublicAppUrl(): string {
+  return getRequiredEnv("PUBLIC_APP_URL");
+}
+
 export function getStripeWebhookSecret(): string {
   return getRequiredEnv("STRIPE_WEBHOOK_SECRET");
 }
