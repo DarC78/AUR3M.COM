@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import { getDbPool } from "../shared/db";
+import { syncSpeedRoundEventStatuses } from "../shared/speedRoundEvents";
 
 export async function speedRoundsUpcoming(
   _request: HttpRequest,
@@ -9,6 +10,7 @@ export async function speedRoundsUpcoming(
 
   try {
     const pool = await getDbPool();
+    await syncSpeedRoundEventStatuses(pool);
     const result = await pool.request().query(`
       SELECT
         id,

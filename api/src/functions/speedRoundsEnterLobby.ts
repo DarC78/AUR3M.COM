@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import sql from "mssql";
 import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
+import { syncSpeedRoundEventStatuses } from "../shared/speedRoundEvents";
 
 type EnterLobbyRequest = {
   event_id?: string;
@@ -53,6 +54,7 @@ export async function speedRoundsEnterLobby(
 
   try {
     const pool = await getDbPool();
+    await syncSpeedRoundEventStatuses(pool);
 
     const eventResult = await pool.request()
       .input("event_id", sql.UniqueIdentifier, body.event_id)
