@@ -299,7 +299,7 @@ export async function speedRoundsJoin(
           partnerUserId = partner.user_id;
 
           const participantIds = [currentParticipant.id.slice(0, 8), partner.id.slice(0, 8)].sort();
-          const sessionRoomName = `${event.room_name}-${participantIds[0]}-${participantIds[1]}`;
+          const sessionRoomName = `${event.room_name}-${participantIds[0]}-${participantIds[1]}-${Date.now()}`;
 
           const sessionResult = await new sql.Request(transaction)
             .input("event_id", sql.UniqueIdentifier, body.event_id)
