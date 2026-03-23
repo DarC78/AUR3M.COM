@@ -51,8 +51,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     .input("stripe_customer_id", sql.NVarChar(255), customerId)
     .query(`
       UPDATE dbo.users
-      SET membership = @membership,
-          current_tier = @current_tier,
+      SET membership = CASE
+                         WHEN current_tier < @current_tier THEN @membership
+                         ELSE membership
+                       END,
+          current_tier = CASE
+                           WHEN current_tier < @current_tier THEN @current_tier
+                           ELSE current_tier
+                         END,
           membership_status = @membership_status,
           stripe_subscription_id = COALESCE(@stripe_subscription_id, stripe_subscription_id),
           stripe_customer_id = COALESCE(@stripe_customer_id, stripe_customer_id)
@@ -124,8 +130,14 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
     .input("membership_status", sql.NVarChar(50), "cancelled")
     .query(`
       UPDATE dbo.users
-      SET membership = @membership,
-          current_tier = @current_tier,
+      SET membership = CASE
+                         WHEN current_tier <= 1 THEN @membership
+                         ELSE membership
+                       END,
+          current_tier = CASE
+                           WHEN current_tier <= 1 THEN @current_tier
+                           ELSE current_tier
+                         END,
           membership_status = @membership_status
       WHERE stripe_subscription_id = @stripe_subscription_id;
     `);

@@ -51,7 +51,7 @@ export async function paymentsStatus(
       };
     }
 
-    if (user.membership === "silver" && user.stripe_subscription_id) {
+    if (user.stripe_subscription_id) {
       const stripe = getStripeClient();
       const subscription = (await stripe.subscriptions.retrieve(user.stripe_subscription_id) as unknown) as Stripe.Subscription & {
         current_period_end: number;
