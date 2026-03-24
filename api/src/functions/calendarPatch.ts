@@ -186,6 +186,7 @@ export async function calendarPatch(
     await cancelScheduledCallReminderEmails(call.id);
     await pool.request()
       .input("id", sql.UniqueIdentifier, call.id)
+      .input("session_id", sql.UniqueIdentifier, call.session_id)
       .input("scheduled_at", sql.DateTime2, scheduledAt)
       .query(`
         UPDATE dbo.scheduled_calls
@@ -193,6 +194,10 @@ export async function calendarPatch(
             status = 'scheduled',
             updated_at = SYSUTCDATETIME()
         WHERE id = @id;
+
+        UPDATE dbo.speed_round_sessions
+        SET scheduled_at = @scheduled_at
+        WHERE id = @session_id;
       `);
 
     await enqueueUpcomingCallReminderEmail(call.user_a_email, call.user_b_alias, scheduledAt, `rem_${call.id}_a`);
