@@ -228,10 +228,16 @@ Success response:
 
 ### `GET /api/speed-rounds/upcoming`
 
+Optional query param: `event_type=test|live`
+
+- `test` returns both test and live events
+- `live` returns only live events
+
 Success response:
 
 ```json
 {
+  "event_type": "test",
   "events": [
     {
       "id": "guid",
@@ -240,7 +246,8 @@ Success response:
       "ends_at": "2026-03-22T00:59:41.001Z",
       "room_name": "sr-launch-001",
       "capacity": 100,
-      "status": "scheduled"
+      "status": "scheduled",
+      "event_type": "test"
     }
   ]
 }
@@ -403,10 +410,17 @@ Success response:
 
 Requires bearer token.
 
+Optional query param: `event_type=test|live`
+
+- Applies only to `call_type = "speed_round"` entries
+- `test` returns both test and live speed-round events
+- `live` returns only live speed-round events
+
 Success response:
 
 ```json
 {
+  "event_type": "test",
   "upcoming": [
     {
       "id": "guid",
@@ -416,7 +430,9 @@ Success response:
       "duration_minutes": 15,
       "call_type": "follow_up",
       "status": "scheduled",
-      "room_name": "sr-followup-abc123"
+      "room_name": "sr-followup-abc123",
+      "title": null,
+      "event_type": null
     }
   ]
 }

@@ -2,8 +2,20 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { getDbPool } from "../shared/db";
 import { syncSpeedRoundEventStatuses } from "../shared/speedRoundEvents";
 
+type SpeedRoundEventType = "test" | "live";
+
+function parseEventType(request: HttpRequest): SpeedRoundEventType {
+  const value = request.query.get("event_type")?.trim().toLowerCase();
+
+  if (value === "live") {
+    return "live";
+  }
+
+  return "test";
+}
+
 export async function speedRoundsUpcoming(
-  _request: HttpRequest,
+  request: HttpRequest,
   context: InvocationContext
 ): Promise<HttpResponseInit> {
   context.log("Upcoming speed rounds request received.");
@@ -11,6 +23,7 @@ export async function speedRoundsUpcoming(
   try {
     const pool = await getDbPool();
     await syncSpeedRoundEventStatuses(pool);
+    const eventType = parseEventType(request);
     const result = await pool.request().query(`
       SELECT
         id,
@@ -19,16 +32,21 @@ export async function speedRoundsUpcoming(
         ends_at,
         room_name,
         capacity,
-        status
+        status,
+        event_type
       FROM dbo.speed_round_events
       WHERE ends_at > SYSUTCDATETIME()
         AND status IN ('scheduled', 'live')
+        AND ${eventType === "live"
+          ? "event_type = 'live'"
+          : "event_type IN ('test', 'live')"}
       ORDER BY starts_at ASC;
     `);
 
     return {
       status: 200,
       jsonBody: {
+        event_type: eventType,
         events: result.recordset
       }
     };

@@ -128,9 +128,15 @@ Update profile fields.
 
 ### GET `/api/speed-rounds/upcoming`
 
+Optional query param: `event_type=test|live`
+
+- `test` returns both test and live events
+- `live` returns only live events
+
 **Response:**
 ```json
 {
+  "event_type": "test",
   "events": [
     {
       "id": "uuid",
@@ -139,7 +145,8 @@ Update profile fields.
       "ends_at": "ISO-8601",
       "room_name": "string",
       "capacity": 50,
-      "status": "scheduled" | "live" | "completed"
+      "status": "scheduled" | "live" | "completed",
+      "event_type": "test" | "live"
     }
   ]
 }
@@ -331,9 +338,16 @@ Browse all members with optional filters.
 
 Returns scheduled follow-up calls (15min, 60min).
 
+Optional query param: `event_type=test|live`
+
+- Applies only to `call_type = "speed_round"` entries
+- `test` returns both test and live speed-round events
+- `live` returns only live speed-round events
+
 **Response:**
 ```json
 {
+  "event_type": "test",
   "upcoming": [
     {
       "id": "uuid",
@@ -341,9 +355,11 @@ Returns scheduled follow-up calls (15min, 60min).
       "partner_alias": "string",
       "scheduled_at": "ISO-8601",
       "duration_minutes": 15 | 60,
-      "call_type": "follow_up",
+      "call_type": "follow_up" | "speed_round",
       "status": "scheduled" | "completed" | "cancelled",
-      "room_name": "string"
+      "room_name": "string",
+      "title": "string | null",
+      "event_type": "test" | "live" | null
     }
   ]
 }

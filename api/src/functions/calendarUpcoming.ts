@@ -3,6 +3,18 @@ import sql from "mssql";
 import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
 
+type SpeedRoundEventType = "test" | "live";
+
+function parseEventType(request: HttpRequest): SpeedRoundEventType {
+  const value = request.query.get("event_type")?.trim().toLowerCase();
+
+  if (value === "live") {
+    return "live";
+  }
+
+  return "test";
+}
+
 export async function calendarUpcoming(
   request: HttpRequest,
   context: InvocationContext
@@ -22,6 +34,7 @@ export async function calendarUpcoming(
 
   try {
     const pool = await getDbPool();
+    const eventType = parseEventType(request);
     const result = await pool.request()
       .input("user_id", sql.UniqueIdentifier, authUserId)
       .query(`
@@ -34,7 +47,8 @@ export async function calendarUpcoming(
           upcoming.call_type,
           upcoming.status,
           upcoming.room_name,
-          upcoming.title
+          upcoming.title,
+          upcoming.event_type
         FROM (
           SELECT
             sc.id,
@@ -53,6 +67,7 @@ export async function calendarUpcoming(
             END AS status,
             sc.room_name,
             CAST(NULL AS NVARCHAR(150)) AS title,
+            CAST(NULL AS NVARCHAR(20)) AS event_type,
             0 AS sort_group
           FROM dbo.scheduled_calls sc
           INNER JOIN dbo.users ua
@@ -76,10 +91,14 @@ export async function calendarUpcoming(
             e.status,
             e.room_name,
             e.title,
+            e.event_type,
             1 AS sort_group
           FROM dbo.speed_round_events e
           WHERE e.ends_at > SYSUTCDATETIME()
             AND e.status IN ('scheduled', 'live')
+            AND ${eventType === "live"
+              ? "e.event_type = 'live'"
+              : "e.event_type IN ('test', 'live')"}
         ) AS upcoming
         ORDER BY upcoming.sort_group ASC, upcoming.scheduled_at ASC;
       `);
@@ -87,6 +106,7 @@ export async function calendarUpcoming(
     return {
       status: 200,
       jsonBody: {
+        event_type: eventType,
         upcoming: result.recordset
       }
     };
