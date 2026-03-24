@@ -1,5 +1,6 @@
 import { Resend } from "resend";
-import { enqueueEmail } from "./emailQueue";
+import { enqueueEmail, enqueueEmailIfNotExists } from "./emailQueue";
+import { buildTrackedEmailClickUrl } from "./emailClickTracking";
 
 type MembershipTier = "paid" | "coaching_program";
 type EmailCopy = { from: string; subject: string; html: string };
@@ -14,7 +15,7 @@ function getRequiredEnv(name: string): string {
   return value;
 }
 
-function getEmailCopy(tier: MembershipTier): { subject: string; html: string } {
+function getEmailCopy(tier: MembershipTier, dashboardUrl: string): { subject: string; html: string } {
   switch (tier) {
     case "paid":
       return {
@@ -56,7 +57,7 @@ function getEmailCopy(tier: MembershipTier): { subject: string; html: string } {
                   <table role="presentation" style="margin-top:28px;border-collapse:collapse;">
                     <tr>
                       <td>
-                        <a href="https://aur3m.com/dashboard" style="display:inline-block;padding:14px 22px;background-color:#1b2430;color:#fbfcfd;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Open Dashboard</a>
+                        <a href="${dashboardUrl}" style="display:inline-block;padding:14px 22px;background-color:#1b2430;color:#fbfcfd;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Open Dashboard</a>
                       </td>
                     </tr>
                   </table>
@@ -112,7 +113,7 @@ function getEmailCopy(tier: MembershipTier): { subject: string; html: string } {
                   <table role="presentation" style="margin-top:28px;border-collapse:collapse;">
                     <tr>
                       <td>
-                        <a href="https://aur3m.com/dashboard" style="display:inline-block;padding:14px 22px;background-color:#2a2118;color:#fffdfa;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Open Dashboard</a>
+                        <a href="${dashboardUrl}" style="display:inline-block;padding:14px 22px;background-color:#2a2118;color:#fffdfa;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Open Dashboard</a>
                       </td>
                     </tr>
                   </table>
@@ -151,10 +152,20 @@ function getPublicAppBaseUrl(): string {
   return process.env.PUBLIC_APP_URL ?? "https://aur3m.com";
 }
 
-function getVerificationEmailCopy(username: string, verificationUrl: string): EmailCopy {
+function getTrackedHref(recipientEmail: string, emailType: string, buttonId: string, targetUrl: string): string {
+  return escapeHtml(buildTrackedEmailClickUrl({
+    recipientEmail,
+    emailType,
+    buttonId,
+    targetUrl
+  }));
+}
+
+function getVerificationEmailCopy(email: string, username: string, verificationUrl: string): EmailCopy {
   const { from } = getResendClient();
   const safeUsername = escapeHtml(username);
   const safeUrl = escapeHtml(verificationUrl);
+  const trackedVerifyUrl = getTrackedHref(email, "verification", "verify_email", verificationUrl);
 
   return {
     from,
@@ -172,12 +183,12 @@ function getVerificationEmailCopy(username: string, verificationUrl: string): Em
             </td>
           </tr>
           <tr>
-            <td style="padding:28px;font-size:15px;line-height:1.8;color:#342b25;">
-              <p style="margin:0 0 16px 0;">Click the button below to verify your email address and activate your account.</p>
-              <p style="margin:24px 0;">
-                <a href="${safeUrl}" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Verify Email</a>
-              </p>
-              <p style="margin:0;color:#6a5a4b;">This verification link expires in 24 hours.</p>
+              <td style="padding:28px;font-size:15px;line-height:1.8;color:#342b25;">
+                <p style="margin:0 0 16px 0;">Click the button below to verify your email address and activate your account.</p>
+                <p style="margin:24px 0;">
+                  <a href="${trackedVerifyUrl}" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Verify Email</a>
+                </p>
+                <p style="margin:0;color:#6a5a4b;">This verification link expires in 24 hours.</p>
             </td>
           </tr>
         </table>
@@ -186,10 +197,12 @@ function getVerificationEmailCopy(username: string, verificationUrl: string): Em
   };
 }
 
-function getSignupWelcomeEmailCopy(username: string, alias: string): EmailCopy {
+function getSignupWelcomeEmailCopy(email: string, username: string, alias: string): EmailCopy {
   const { from } = getResendClient();
   const safeUsername = escapeHtml(username);
   const safeAlias = escapeHtml(alias);
+  const openDashboardUrl = getTrackedHref(email, "signup_welcome", "open_dashboard", "https://aur3m.com/dashboard");
+  const membershipOptionsUrl = getTrackedHref(email, "signup_welcome", "view_membership_options", "https://aur3m.com/subscription");
 
   return {
     from,
@@ -235,10 +248,10 @@ function getSignupWelcomeEmailCopy(username: string, alias: string): EmailCopy {
               <table role="presentation" style="margin-top:28px;border-collapse:collapse;">
                 <tr>
                   <td style="padding:0 12px 12px 0;">
-                    <a href="https://aur3m.com/dashboard" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Open Dashboard</a>
+                    <a href="${openDashboardUrl}" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Open Dashboard</a>
                   </td>
                   <td style="padding:0 0 12px 0;">
-                    <a href="https://aur3m.com/subscription" style="display:inline-block;padding:14px 22px;border:1px solid #1f1a17;color:#1f1a17;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">View Membership Options</a>
+                    <a href="${membershipOptionsUrl}" style="display:inline-block;padding:14px 22px;border:1px solid #1f1a17;color:#1f1a17;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">View Membership Options</a>
                   </td>
                 </tr>
               </table>
@@ -256,9 +269,10 @@ function getSignupWelcomeEmailCopy(username: string, alias: string): EmailCopy {
   };
 }
 
-function getMembershipUpgradeEmailCopy(tier: MembershipTier): EmailCopy {
+function getMembershipUpgradeEmailCopy(email: string, tier: MembershipTier): EmailCopy {
   const { from } = getResendClient();
-  const copy = getEmailCopy(tier);
+  const dashboardUrl = getTrackedHref(email, `membership_${tier}`, "open_dashboard", "https://aur3m.com/dashboard");
+  const copy = getEmailCopy(tier, dashboardUrl);
 
   return {
     from,
@@ -267,10 +281,11 @@ function getMembershipUpgradeEmailCopy(tier: MembershipTier): EmailCopy {
   };
 }
 
-function getPasswordResetEmailCopy(username: string, resetToken: string): EmailCopy {
+function getPasswordResetEmailCopy(email: string, username: string, resetToken: string): EmailCopy {
   const { from } = getResendClient();
   const safeUsername = escapeHtml(username);
   const resetUrl = `${getPublicAppBaseUrl()}/reset-password?token=${encodeURIComponent(resetToken)}`;
+  const trackedResetUrl = getTrackedHref(email, "password_reset", "reset_password", resetUrl);
 
   return {
     from,
@@ -289,10 +304,10 @@ function getPasswordResetEmailCopy(username: string, resetToken: string): EmailC
           </tr>
           <tr>
             <td style="padding:28px;font-size:15px;line-height:1.8;color:#342b25;">
-              <p style="margin:0 0 16px 0;">Use the button below to set a new password. This reset link expires in 1 hour.</p>
-              <p style="margin:24px 0;">
-                <a href="${resetUrl}" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Reset Password</a>
-              </p>
+                <p style="margin:0 0 16px 0;">Use the button below to set a new password. This reset link expires in 1 hour.</p>
+                <p style="margin:24px 0;">
+                  <a href="${trackedResetUrl}" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Reset Password</a>
+                </p>
               <p style="margin:0 0 16px 0;">If the button does not open, use this link:</p>
               <p style="margin:0;word-break:break-word;color:#6a5a4b;">${resetUrl}</p>
               <div style="margin-top:24px;padding:18px 20px;background-color:#f8f3ec;border-left:4px solid #b08a5a;color:#3e342d;">
@@ -312,10 +327,15 @@ function getPasswordResetEmailCopy(username: string, resetToken: string): EmailC
   };
 }
 
-function getSignupFollowUpEmailCopies(username: string, alias: string): EmailCopy[] {
+function getSignupFollowUpEmailCopies(email: string, username: string, alias: string): EmailCopy[] {
   const { from } = getResendClient();
   const safeUsername = escapeHtml(username);
   const safeAlias = escapeHtml(alias);
+  const dashboardUrl = getTrackedHref(email, "signup_followup_day_1", "open_dashboard", "https://aur3m.com/dashboard");
+  const reviewProfileUrl = getTrackedHref(email, "signup_followup_day_2", "review_profile", "https://aur3m.com/profile");
+  const exploreMembersUrl = getTrackedHref(email, "signup_followup_day_3", "explore_members", "https://aur3m.com/dashboard");
+  const viewMembershipOptionsUrl = getTrackedHref(email, "signup_followup_day_4", "view_membership_options", "https://aur3m.com/subscription");
+  const returnToAur3mUrl = getTrackedHref(email, "signup_followup_day_5", "return_to_aur3m", "https://aur3m.com/dashboard");
 
   return [
     {
@@ -343,7 +363,7 @@ function getSignupFollowUpEmailCopies(username: string, alias: string): EmailCop
                 </div>
                 <p style="margin:16px 0 16px 0;">This is not about making things cold or distant. It is about allowing trust to form in the right order. First comes interest. Then consistency. Then mutual confidence. Only after that should identity be placed on the table.</p>
                 <p style="margin:0 0 16px 0;">The result is a calmer, more intentional experience. Less pressure. Better boundaries. More dignity for both people. And far more control over when something personal becomes truly personal.</p>
-                <p style="margin:24px 0 0 0;"><a href="https://aur3m.com/dashboard" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Open Dashboard</a></p>
+                <p style="margin:24px 0 0 0;"><a href="${dashboardUrl}" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Open Dashboard</a></p>
               </td>
             </tr>
           </table>
@@ -372,7 +392,7 @@ function getSignupFollowUpEmailCopies(username: string, alias: string): EmailCop
                 </div>
                 <p style="margin:16px 0 16px 0;">It is completely fine to say no. It is completely fine to say yes. What is not fine is saying yes and then not showing up.</p>
                 <p style="margin:0 0 16px 0;">On AUR3M, members who ghost others are removed from the platform after three ghostings. That standard protects everyone who is participating in good faith.</p>
-                <p style="margin:24px 0 0 0;"><a href="https://aur3m.com/profile" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Review Profile</a></p>
+                <p style="margin:24px 0 0 0;"><a href="${reviewProfileUrl}" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Review Profile</a></p>
               </td>
             </tr>
           </table>
@@ -401,7 +421,7 @@ function getSignupFollowUpEmailCopies(username: string, alias: string): EmailCop
                 </div>
                 <p style="margin:16px 0 16px 0;">One of the worst parts of an ordinary date is sitting through dinner with someone and realising there is nothing meaningful to talk about. But if you have already gone through three calls in which both of you kept saying yes, then at the very least you know there is already some real common ground to explore.</p>
                 <p style="margin:0 0 16px 0;">And who knows, if the date goes well and both of you agree, you might leave the restaurant together. Or you may simply part ways respectfully, still without exposing your real identity too early. Everything in the process is designed with your safety in mind.</p>
-                <p style="margin:24px 0 0 0;"><a href="https://aur3m.com/dashboard" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Explore Members</a></p>
+                <p style="margin:24px 0 0 0;"><a href="${exploreMembersUrl}" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Explore Members</a></p>
               </td>
             </tr>
           </table>
@@ -430,7 +450,7 @@ function getSignupFollowUpEmailCopies(username: string, alias: string): EmailCop
                 </div>
                 <p style="margin:16px 0 16px 0;">During the date, if both people want to, they can exchange contact details. But that happens only at the end of the date, not before. If they do not wish to do that, the restaurant ensures they leave safely and separately.</p>
                 <p style="margin:0 0 16px 0;">The entire structure is designed to balance chemistry with caution, and progress with protection.</p>
-                <p style="margin:24px 0 0 0;"><a href="https://aur3m.com/subscription" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">View Membership Options</a></p>
+                <p style="margin:24px 0 0 0;"><a href="${viewMembershipOptionsUrl}" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">View Membership Options</a></p>
               </td>
             </tr>
           </table>
@@ -461,7 +481,7 @@ function getSignupFollowUpEmailCopies(username: string, alias: string): EmailCop
                 </div>
                 <p style="margin:16px 0 16px 0;">That rule is there for a reason. There is no pressure, no assumption, and no automatic continuation just because a date happened. Both people must want the same next step.</p>
                 <p style="margin:0 0 16px 0;">If that shared yes is not there, the restaurant helps make sure both of you leave safely and separately, and you do not continue together. The entire structure is designed so that meeting in person never means giving up control.</p>
-                <p style="margin:24px 0 0 0;"><a href="https://aur3m.com/dashboard" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Return to AUR3M</a></p>
+                <p style="margin:24px 0 0 0;"><a href="${returnToAur3mUrl}" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Return to AUR3M</a></p>
               </td>
             </tr>
           </table>
@@ -540,6 +560,39 @@ function getUpcomingCallReminderEmailCopy(alias: string, scheduledAt: Date): Ema
             <td style="padding:24px 28px;">
               <div style="font-size:30px;line-height:1.2;color:#1f1a17;">Your AUR3M call is coming up</div>
               <p style="font-size:16px;line-height:1.8;color:#54473c;">Your call with ${safeAlias} starts in 1 hour at ${formatted}.</p>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `
+  };
+}
+
+function getLiveEventReminderEmailCopy(email: string, title: string, scheduledAt: Date): EmailCopy {
+  const { from } = getResendClient();
+  const safeTitle = escapeHtml(title);
+  const formatted = escapeHtml(`${formatUtcDateTime(scheduledAt)} UTC`);
+  const openDashboardUrl = getTrackedHref(email, "live_event_reminder", "open_aur3m", "https://aur3m.com/dashboard");
+
+  return {
+    from,
+    subject: "Your AUR3M live event starts in 1 hour",
+    html: `
+      <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
+        <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
+          <tr>
+            <td style="padding:24px 28px;border-bottom:1px solid #e7ddd2;background:linear-gradient(135deg,#f7f1e8 0%,#efe2d1 100%);">
+              <div style="font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:#8a6f52;">AUR3M Live Event</div>
+              <div style="margin-top:10px;font-size:32px;line-height:1.2;color:#1f1a17;">Your event starts in 1 hour</div>
+              <div style="margin-top:10px;font-size:16px;line-height:1.7;color:#54473c;">
+                <strong>${safeTitle}</strong> starts at <strong>${formatted}</strong>.
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 28px;">
+              <p style="font-size:16px;line-height:1.8;color:#54473c;margin:0 0 16px 0;">If you want to join, open AUR3M shortly before the event begins.</p>
+              <p style="margin:0;"><a href="${openDashboardUrl}" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Open AUR3M</a></p>
             </td>
           </tr>
         </table>
@@ -639,6 +692,54 @@ function getDateRefundIssuedEmailCopy(): EmailCopy {
   };
 }
 
+function getGoogleAdsLeadWelcomeEmailCopy(email: string): EmailCopy {
+  const { from } = getResendClient();
+  const signupUrl = `${getPublicAppBaseUrl()}/signup?email=${encodeURIComponent(email)}`;
+  const trackedSignupUrl = getTrackedHref(email, "google_ads_lead_welcome", "activate_account", signupUrl);
+
+  return {
+    from,
+    subject: "Start AUR3M for free",
+    html: `
+      <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
+        <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
+          <tr>
+            <td style="padding:20px 28px;border-bottom:1px solid #e7ddd2;background:linear-gradient(135deg,#f7f1e8 0%,#efe2d1 100%);">
+              <div style="font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:#8a6f52;">AUR3M</div>
+              <div style="margin-top:10px;font-size:34px;line-height:1.15;color:#1f1a17;">A more intentional way to date</div>
+              <div style="margin-top:8px;font-size:16px;line-height:1.6;color:#54473c;">
+                You can start on AUR3M for free and activate your account in a few minutes.
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px;font-size:15px;line-height:1.8;color:#342b25;">
+              <p style="margin:0 0 16px 0;">Here are three of the biggest benefits of AUR3M:</p>
+              <table role="presentation" style="width:100%;border-collapse:separate;border-spacing:0 12px;">
+                <tr>
+                  <td style="width:44px;vertical-align:top;font-size:20px;color:#8a6f52;">01</td>
+                  <td>Anonymous first. Your identity is protected until both people are ready and the platform’s safety checks have been completed.</td>
+                </tr>
+                <tr>
+                  <td style="width:44px;vertical-align:top;font-size:20px;color:#8a6f52;">02</td>
+                  <td>Structured progression. Instead of endless swiping and ghosting, AUR3M moves people forward through meaningful conversations.</td>
+                </tr>
+                <tr>
+                  <td style="width:44px;vertical-align:top;font-size:20px;color:#8a6f52;">03</td>
+                  <td>Safety built into every stage, from identity verification to controlled progression and secure in-person dates.</td>
+                </tr>
+              </table>
+              <p style="margin:24px 0 0 0;">
+                <a href="${trackedSignupUrl}" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Activate Your Free Account</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `
+  };
+}
+
 export async function sendEmail(from: string, to: string, subject: string, html: string): Promise<void> {
   const { resend } = getResendClient();
 
@@ -651,13 +752,13 @@ export async function sendEmail(from: string, to: string, subject: string, html:
 }
 
 export async function sendSignupWelcomeEmail(email: string, username: string, alias: string): Promise<void> {
-  const copy = getSignupWelcomeEmailCopy(username, alias);
+  const copy = getSignupWelcomeEmailCopy(email, username, alias);
 
   await sendEmail(copy.from, email, copy.subject, copy.html);
 }
 
 export async function sendMembershipUpgradeEmail(email: string, tier: MembershipTier): Promise<void> {
-  const copy = getMembershipUpgradeEmailCopy(tier);
+  const copy = getMembershipUpgradeEmailCopy(email, tier);
 
   await sendEmail(copy.from, email, copy.subject, copy.html);
 }
@@ -667,7 +768,7 @@ export async function sendPasswordResetEmail(
   username: string,
   resetToken: string
 ): Promise<void> {
-  const copy = getPasswordResetEmailCopy(username, resetToken);
+  const copy = getPasswordResetEmailCopy(email, username, resetToken);
 
   await sendEmail(copy.from, email, copy.subject, copy.html);
 }
@@ -677,7 +778,7 @@ export async function sendVerificationEmail(
   username: string,
   verificationUrl: string
 ): Promise<void> {
-  const copy = getVerificationEmailCopy(username, verificationUrl);
+  const copy = getVerificationEmailCopy(email, username, verificationUrl);
   await sendEmail(copy.from, email, copy.subject, copy.html);
 }
 
@@ -687,7 +788,7 @@ export async function enqueueSignupFollowUpEmails(
   alias: string,
   signupDate: Date
 ): Promise<void> {
-  const followUps = getSignupFollowUpEmailCopies(username, alias);
+  const followUps = getSignupFollowUpEmailCopies(email, username, alias);
 
   for (const [index, followUp] of followUps.entries()) {
     const toSendAfterDate = new Date(signupDate);
@@ -729,6 +830,25 @@ export async function enqueueUpcomingCallReminderEmail(
     toEmail: email,
     subject: copy.subject,
     htmlBody: copy.html,
+      toSendAfterDate
+  });
+}
+
+export async function enqueueLiveEventReminderEmail(
+  email: string,
+  eventTitle: string,
+  scheduledAt: Date,
+  reminderKey: string
+): Promise<void> {
+  const copy = getLiveEventReminderEmailCopy(email, eventTitle, scheduledAt);
+  const toSendAfterDate = new Date(scheduledAt.getTime() - (60 * 60 * 1000));
+
+  await enqueueEmailIfNotExists({
+    emailType: reminderKey,
+    fromEmail: copy.from,
+    toEmail: email,
+    subject: copy.subject,
+    htmlBody: copy.html,
     toSendAfterDate
   });
 }
@@ -761,5 +881,10 @@ export async function sendDateBookedEmail(
 
 export async function sendDateRefundIssuedEmail(email: string): Promise<void> {
   const copy = getDateRefundIssuedEmailCopy();
+  await sendEmail(copy.from, email, copy.subject, copy.html);
+}
+
+export async function sendGoogleAdsLeadWelcomeEmail(email: string): Promise<void> {
+  const copy = getGoogleAdsLeadWelcomeEmailCopy(email);
   await sendEmail(copy.from, email, copy.subject, copy.html);
 }
