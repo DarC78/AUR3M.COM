@@ -335,11 +335,14 @@ function getSignupFollowUpEmailCopies(username: string, alias: string): EmailCop
             </tr>
             <tr>
               <td style="padding:28px;font-size:15px;line-height:1.8;color:#342b25;">
-                <p style="margin:0 0 16px 0;">Hi ${safeUsername}, one of the core ideas behind AUR3M is that people should be able to explore genuine compatibility without exposing too much too early.</p>
-                <p style="margin:0 0 16px 0;">That means you can participate on the platform through your alias first, keep your privacy intact, and only move further when both sides want to.</p>
+                <p style="margin:0 0 16px 0;">Hi ${safeUsername}, one of the strongest protections on AUR3M is that identity is treated as something valuable, not something to hand over at the very beginning.</p>
+                <p style="margin:0 0 16px 0;">Too often, people reveal a real name, Instagram, LinkedIn, phone number, or place of work before trust has been earned. It can feel harmless in the moment. Then interest becomes one-sided, boundaries are ignored, or someone starts pushing for access they have not earned. What began as curiosity turns into unwanted messages, pressure outside the platform, or the uneasy feeling that a near-stranger now knows far more than they should.</p>
+                <p style="margin:0 0 16px 0;">That is the moment AUR3M is built to prevent. Here, you begin through your alias <strong>${safeAlias}</strong>. You are given room to assess character, conversation, and compatibility before your real identity enters the equation.</p>
                 <div style="padding:18px 20px;background-color:#f8f3ec;border-left:4px solid #b08a5a;color:#3e342d;">
-                  The point is simple: less pressure, better boundaries, and more control over how things progress.
+                  On AUR3M, identities are revealed only when both people are ready, never before identity verification is complete, and never before both sides explicitly agree.
                 </div>
+                <p style="margin:16px 0 16px 0;">This is not about making things cold or distant. It is about allowing trust to form in the right order. First comes interest. Then consistency. Then mutual confidence. Only after that should identity be placed on the table.</p>
+                <p style="margin:0 0 16px 0;">The result is a calmer, more intentional experience. Less pressure. Better boundaries. More dignity for both people. And far more control over when something personal becomes truly personal.</p>
                 <p style="margin:24px 0 0 0;"><a href="https://aur3m.com/dashboard" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Open Dashboard</a></p>
               </td>
             </tr>
@@ -349,23 +352,26 @@ function getSignupFollowUpEmailCopies(username: string, alias: string): EmailCop
     },
     {
       from,
-      subject: "Feature 2: discover compatible people more deliberately",
+      subject: `${safeUsername}, a better way than waiting and ghosting`,
       html: `
         <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
           <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
             <tr>
               <td style="padding:20px 28px;border-bottom:1px solid #e7ddd2;background:linear-gradient(135deg,#f7f1e8 0%,#efe2d1 100%);">
                 <div style="font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:#8a6f52;">AUR3M Feature 2</div>
-                <div style="margin-top:10px;font-size:32px;line-height:1.15;color:#1f1a17;">Better filtering, less noise</div>
+                <div style="margin-top:10px;font-size:32px;line-height:1.15;color:#1f1a17;">Less waiting. Less ghosting.</div>
               </td>
             </tr>
             <tr>
               <td style="padding:28px;font-size:15px;line-height:1.8;color:#342b25;">
-                <p style="margin:0 0 16px 0;">AUR3M is meant to feel more selective than the usual swipe-and-scroll experience.</p>
-                <p style="margin:0 0 16px 0;">Your profile details help shape which members make sense for you, so completing your profile properly improves the quality of the people you explore.</p>
+                <p style="margin:0 0 16px 0;">Most matchmaking platforms waste an extraordinary amount of time. People wait for replies, wait for momentum, wait for someone to finally make a plan, and then often get ghosted anyway.</p>
+                <p style="margin:0 0 16px 0;">AUR3M is designed to move in a clearer direction. You can review tens or even hundreds of people, decide where there seems to be real common ground, and take that interest forward into a structured 15 minute conversation.</p>
+                <p style="margin:0 0 16px 0;">If that first conversation goes well, things progress to a one hour conversation. The idea is simple: less endless texting, less ambiguity, and a much faster path to finding out whether there is actually something there.</p>
                 <div style="padding:18px 20px;background-color:#f8f3ec;border-left:4px solid #b08a5a;color:#3e342d;">
-                  Better profile detail means better introductions and less wasted time.
+                  No time wasted. No ghosting rewarded. Every member has to actively say yes before things move forward.
                 </div>
+                <p style="margin:16px 0 16px 0;">It is completely fine to say no. It is completely fine to say yes. What is not fine is saying yes and then not showing up.</p>
+                <p style="margin:0 0 16px 0;">On AUR3M, members who ghost others are removed from the platform after three ghostings. That standard protects everyone who is participating in good faith.</p>
                 <p style="margin:24px 0 0 0;"><a href="https://aur3m.com/profile" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Review Profile</a></p>
               </td>
             </tr>
@@ -375,23 +381,26 @@ function getSignupFollowUpEmailCopies(username: string, alias: string): EmailCop
     },
     {
       from,
-      subject: "Feature 3: connections only happen when interest is mutual",
+      subject: `${safeUsername}, saying no is part of finding the right person`,
       html: `
         <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
           <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
             <tr>
               <td style="padding:20px 28px;border-bottom:1px solid #e7ddd2;background:linear-gradient(135deg,#f7f1e8 0%,#efe2d1 100%);">
                 <div style="font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:#8a6f52;">AUR3M Feature 3</div>
-                <div style="margin-top:10px;font-size:32px;line-height:1.15;color:#1f1a17;">Mutual interest matters</div>
+                <div style="margin-top:10px;font-size:32px;line-height:1.15;color:#1f1a17;">Saying no is part of the process</div>
               </td>
             </tr>
             <tr>
               <td style="padding:28px;font-size:15px;line-height:1.8;color:#342b25;">
-                <p style="margin:0 0 16px 0;">On AUR3M, a connection is created when the interest goes both ways.</p>
-                <p style="margin:0 0 16px 0;">That keeps things cleaner. You are not pushed into endless one-sided outreach or unnecessary exposure.</p>
+                <p style="margin:0 0 16px 0;">One of the healthiest ideas on AUR3M is that saying no is completely normal. In real life, most of us are only genuinely compatible with perhaps 3% to 5% of the people we meet. That means, in reality, we need to say no to the other 95%.</p>
+                <p style="margin:0 0 16px 0;">The point is not to force chemistry where it does not exist. The point is to filter well, respectfully, and without wasting months of time.</p>
+                <p style="margin:0 0 16px 0;">That is why AUR3M works as a three-step filter. After the 3 minute call, you usually eliminate 50% to 60% of people. After the 15 minute call, you eliminate a further 20% to 30%. Then, after the one hour call, you decide whether this is actually someone you want to meet on a real date.</p>
                 <div style="padding:18px 20px;background-color:#f8f3ec;border-left:4px solid #b08a5a;color:#3e342d;">
-                  The platform is designed to move people forward only when there is genuine reciprocal intent.
+                  Every stage moves forward only when both people say they want more. No pressure, no forced momentum, and no need to pretend.
                 </div>
+                <p style="margin:16px 0 16px 0;">One of the worst parts of an ordinary date is sitting through dinner with someone and realising there is nothing meaningful to talk about. But if you have already gone through three calls in which both of you kept saying yes, then at the very least you know there is already some real common ground to explore.</p>
+                <p style="margin:0 0 16px 0;">And who knows, if the date goes well and both of you agree, you might leave the restaurant together. Or you may simply part ways respectfully, still without exposing your real identity too early. Everything in the process is designed with your safety in mind.</p>
                 <p style="margin:24px 0 0 0;"><a href="https://aur3m.com/dashboard" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Explore Members</a></p>
               </td>
             </tr>
@@ -401,23 +410,26 @@ function getSignupFollowUpEmailCopies(username: string, alias: string): EmailCop
     },
     {
       from,
-      subject: "Feature 4: progress from interest to real interaction",
+      subject: `${safeUsername}, the one hour call matters more than you think`,
       html: `
         <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
           <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
             <tr>
               <td style="padding:20px 28px;border-bottom:1px solid #e7ddd2;background:linear-gradient(135deg,#f7f1e8 0%,#efe2d1 100%);">
                 <div style="font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:#8a6f52;">AUR3M Feature 4</div>
-                <div style="margin-top:10px;font-size:32px;line-height:1.15;color:#1f1a17;">A clear path forward</div>
+                <div style="margin-top:10px;font-size:32px;line-height:1.15;color:#1f1a17;">The one hour call is where things become real</div>
               </td>
             </tr>
             <tr>
               <td style="padding:28px;font-size:15px;line-height:1.8;color:#342b25;">
-                <p style="margin:0 0 16px 0;">AUR3M is not supposed to stop at passive browsing.</p>
-                <p style="margin:0 0 16px 0;">If you want more direct interaction, paid membership unlocks 3, 15, and 60 minute calls, offline dates are booked as an add-on, and the 3 month coaching programme is available separately.</p>
+                <p style="margin:0 0 16px 0;">By the time two people reach the one hour call on AUR3M, something meaningful has already happened. They have both moved through the earlier filters, both chosen to continue, and both shown that there is at least some real interest worth exploring.</p>
+                <p style="margin:0 0 16px 0;">That one hour conversation matters because it is long enough to properly test whether the two of you genuinely have things in common, whether the interest is mutual, and whether spending time together in person would actually make sense.</p>
+                <p style="margin:0 0 16px 0;">This is also the stage where both of you decide whether you want to go on a date. And even here, identities are still not revealed. Safety comes first. Only the two of you can decide whether you want to progress further or not.</p>
                 <div style="padding:18px 20px;background-color:#f8f3ec;border-left:4px solid #b08a5a;color:#3e342d;">
-                  The idea is progression: from profile, to mutual interest, to conversation, to meeting.
+                  If both agree to go on a date, the platform validates both identities, but does not reveal them to each other. That step exists to reduce the chance of scammers and to make sure the meeting is built on something real.
                 </div>
+                <p style="margin:16px 0 16px 0;">During the date, if both people want to, they can exchange contact details. But that happens only at the end of the date, not before. If they do not wish to do that, the restaurant ensures they leave safely and separately.</p>
+                <p style="margin:0 0 16px 0;">The entire structure is designed to balance chemistry with caution, and progress with protection.</p>
                 <p style="margin:24px 0 0 0;"><a href="https://aur3m.com/subscription" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">View Membership Options</a></p>
               </td>
             </tr>
@@ -427,7 +439,7 @@ function getSignupFollowUpEmailCopies(username: string, alias: string): EmailCop
     },
     {
       from,
-      subject: "Feature 5: ID verification before meeting",
+      subject: `${safeUsername}, verified before meeting, private until the end`,
       html: `
         <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
           <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
@@ -436,17 +448,19 @@ function getSignupFollowUpEmailCopies(username: string, alias: string): EmailCop
                 <div style="font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:#8a6f52;">AUR3M Feature 5</div>
                 <div style="margin-top:10px;font-size:32px;line-height:1.15;color:#1f1a17;">Verification before meeting</div>
                 <div style="margin-top:8px;font-size:16px;line-height:1.6;color:#54473c;">
-                  Privacy first does not mean safety last.
+                  Confidentiality is protected all the way through the process.
                 </div>
               </td>
             </tr>
             <tr>
               <td style="padding:28px;font-size:15px;line-height:1.8;color:#342b25;">
-                <p style="margin:0 0 16px 0;">AUR3M begins with anonymity, but before an in-person meeting there is an ID verification step.</p>
-                <p style="margin:0 0 16px 0;">That balance is deliberate: you keep control early on, while the process becomes more accountable before things move offline.</p>
+                <p style="margin:0 0 16px 0;">Before a real life date on AUR3M, both of you are ID verified, but you still do not know each other’s true identity. That distinction matters. Verification exists for safety. Confidentiality remains in place for protection.</p>
+                <p style="margin:0 0 16px 0;">The date itself is organised to be highly secure. Only you can decide, at the end of the date, whether you want to reveal who you really are. Until then, privacy is preserved.</p>
                 <div style="padding:18px 20px;background-color:#f8f3ec;border-left:4px solid #b08a5a;color:#3e342d;">
-                  Anonymous at the start. Verified before meeting. That is one of the key trust mechanisms behind the platform.
+                  After the date, both people must agree if they want to leave together. If one person says no, you go your separate ways.
                 </div>
+                <p style="margin:16px 0 16px 0;">That rule is there for a reason. There is no pressure, no assumption, and no automatic continuation just because a date happened. Both people must want the same next step.</p>
+                <p style="margin:0 0 16px 0;">If that shared yes is not there, the restaurant helps make sure both of you leave safely and separately, and you do not continue together. The entire structure is designed so that meeting in person never means giving up control.</p>
                 <p style="margin:24px 0 0 0;"><a href="https://aur3m.com/dashboard" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Return to AUR3M</a></p>
               </td>
             </tr>
