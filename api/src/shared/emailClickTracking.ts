@@ -21,6 +21,16 @@ function getPublicAppBaseUrl(): string {
   return process.env.PUBLIC_APP_URL ?? "https://aur3m.com";
 }
 
+function getApiBaseUrl(): string {
+  const explicit = process.env.PUBLIC_API_URL ?? process.env.API_BASE_URL;
+
+  if (explicit) {
+    return explicit.replace(/\/+$/, "");
+  }
+
+  return `${getPublicAppBaseUrl().replace(/\/+$/, "")}/api`;
+}
+
 export function signEmailClickToken(payload: EmailClickTokenPayload): string {
   return jwt.sign(payload, getJwtSecret(), {
     algorithm: "HS256",
@@ -45,5 +55,5 @@ export function verifyEmailClickToken(token: string): EmailClickTokenPayload {
 
 export function buildTrackedEmailClickUrl(payload: EmailClickTokenPayload): string {
   const token = signEmailClickToken(payload);
-  return `${getPublicAppBaseUrl()}/api/email/click?token=${encodeURIComponent(token)}`;
+  return `${getApiBaseUrl()}/email/click?token=${encodeURIComponent(token)}`;
 }
