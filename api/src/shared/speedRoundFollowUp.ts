@@ -35,12 +35,6 @@ const stageRank: Record<RelationshipStage, number> = {
   revealed: 100
 };
 
-export function normalizeRelationshipPair(userA: string, userB: string): { userAId: string; userBId: string } {
-  return userA.toLowerCase() < userB.toLowerCase()
-    ? { userAId: userA, userBId: userB }
-    : { userAId: userB, userBId: userA };
-}
-
 export function getScheduledAtForSlot(date: string, period: AvailabilityPeriod): Date {
   const hour = period === "morning" ? 9 : period === "afternoon" ? 12 : 17;
   return new Date(`${date}T${hour.toString().padStart(2, "0")}:00:00.000Z`);
@@ -148,15 +142,14 @@ export async function ensureRelationshipForPair(
   latestSessionId?: string,
   stage: RelationshipStage = "3min"
 ): Promise<string> {
-  const { userAId, userBId } = normalizeRelationshipPair(userA, userB);
   const existingResult = await pool.request()
-    .input("user_a_id", sql.UniqueIdentifier, userAId)
-    .input("user_b_id", sql.UniqueIdentifier, userBId)
+    .input("user_a_id", sql.UniqueIdentifier, userA)
+    .input("user_b_id", sql.UniqueIdentifier, userB)
     .query(`
       SELECT TOP 1 id
       FROM dbo.relationships
-      WHERE user_a_id = @user_a_id
-        AND user_b_id = @user_b_id;
+      WHERE user_a_id = CASE WHEN @user_a_id < @user_b_id THEN @user_a_id ELSE @user_b_id END
+        AND user_b_id = CASE WHEN @user_a_id < @user_b_id THEN @user_b_id ELSE @user_a_id END;
     `);
 
   const existing = existingResult.recordset[0] as { id: string } | undefined;
@@ -166,14 +159,19 @@ export async function ensureRelationshipForPair(
   }
 
   const result = await pool.request()
-    .input("user_a_id", sql.UniqueIdentifier, userAId)
-    .input("user_b_id", sql.UniqueIdentifier, userBId)
+    .input("user_a_id", sql.UniqueIdentifier, userA)
+    .input("user_b_id", sql.UniqueIdentifier, userB)
     .input("latest_session_id", sql.UniqueIdentifier, latestSessionId ?? null)
     .input("stage", sql.NVarChar(30), stage)
     .query(`
       INSERT INTO dbo.relationships (user_a_id, user_b_id, latest_session_id, stage)
       OUTPUT INSERTED.id
-      VALUES (@user_a_id, @user_b_id, @latest_session_id, @stage);
+      VALUES (
+        CASE WHEN @user_a_id < @user_b_id THEN @user_a_id ELSE @user_b_id END,
+        CASE WHEN @user_a_id < @user_b_id THEN @user_b_id ELSE @user_a_id END,
+        @latest_session_id,
+        @stage
+      );
     `);
 
   return (result.recordset[0] as { id: string }).id;

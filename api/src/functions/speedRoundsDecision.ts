@@ -6,7 +6,6 @@ import { sendPartnerPassedEmail } from "../shared/email";
 import {
   ensureRelationshipForPair,
   getSessionRelationshipContext,
-  normalizeRelationshipPair,
   updateRelationshipStage
 } from "../shared/speedRoundFollowUp";
 import { logUserAction } from "../shared/userActionLogs";
@@ -122,21 +121,23 @@ export async function speedRoundsDecision(
     const mutualYes = bothDecided && decisions.every((item) => item.decision === "yes");
 
     if (bothDecided) {
-      const { userAId, userBId } = normalizeRelationshipPair(session.participantAUserId, session.participantBUserId);
-
       if (mutualYes) {
         await pool.request()
-          .input("user_a_id", sql.UniqueIdentifier, userAId)
-          .input("user_b_id", sql.UniqueIdentifier, userBId)
+          .input("user_a_id", sql.UniqueIdentifier, session.participantAUserId)
+          .input("user_b_id", sql.UniqueIdentifier, session.participantBUserId)
           .query(`
             IF NOT EXISTS (
               SELECT 1
               FROM dbo.connections
-              WHERE user_a_id = @user_a_id AND user_b_id = @user_b_id
+              WHERE user_a_id = CASE WHEN @user_a_id < @user_b_id THEN @user_a_id ELSE @user_b_id END
+                AND user_b_id = CASE WHEN @user_a_id < @user_b_id THEN @user_b_id ELSE @user_a_id END
             )
             BEGIN
               INSERT INTO dbo.connections (user_a_id, user_b_id)
-              VALUES (@user_a_id, @user_b_id);
+              VALUES (
+                CASE WHEN @user_a_id < @user_b_id THEN @user_a_id ELSE @user_b_id END,
+                CASE WHEN @user_a_id < @user_b_id THEN @user_b_id ELSE @user_a_id END
+              );
             END;
           `);
 
@@ -151,12 +152,12 @@ export async function speedRoundsDecision(
         }
       } else {
         await pool.request()
-          .input("user_a_id", sql.UniqueIdentifier, userAId)
-          .input("user_b_id", sql.UniqueIdentifier, userBId)
+          .input("user_a_id", sql.UniqueIdentifier, session.participantAUserId)
+          .input("user_b_id", sql.UniqueIdentifier, session.participantBUserId)
           .query(`
             DELETE FROM dbo.connections
-            WHERE user_a_id = @user_a_id
-              AND user_b_id = @user_b_id;
+            WHERE user_a_id = CASE WHEN @user_a_id < @user_b_id THEN @user_a_id ELSE @user_b_id END
+              AND user_b_id = CASE WHEN @user_a_id < @user_b_id THEN @user_b_id ELSE @user_a_id END;
           `);
 
         await updateRelationshipStage(pool, relationshipId, "passed", body.session_id);
