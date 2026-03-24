@@ -70,7 +70,7 @@ export async function dateCreatePayment(
       success_url: `https://aur3m.com/date/${body.relationship_id}`,
       cancel_url: `https://aur3m.com/date/${body.relationship_id}`,
       metadata: {
-        paymentType: "gold_date",
+        paymentType: "offline_date",
         relationshipId: body.relationship_id,
         userId: auth.sub
       }

@@ -3,10 +3,12 @@ import sql from "mssql";
 import Stripe from "stripe";
 import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
-import { getStripeClient, getTierConfig } from "../shared/stripe";
+import { upsertCoachingProgramCheckoutSession } from "../shared/coachingPrograms";
+import { getAddOnConfig, getMembershipTierConfig, getStripeClient } from "../shared/stripe";
 
 type CheckoutRequest = {
-  tier?: "silver" | "gold" | "platinum";
+  tier?: "paid" | "silver" | "gold" | "platinum";
+  add_on?: "coaching_program";
 };
 
 function badRequest(message: string): HttpResponseInit {
@@ -45,13 +47,30 @@ export async function paymentsCreateCheckout(
     return badRequest("Request body must be valid JSON.");
   }
 
-  if (!body.tier || !["silver", "gold", "platinum"].includes(body.tier)) {
-    return badRequest("tier must be silver, gold, or platinum.");
+  const requestedTier = body.tier === "silver" ? "paid" : body.tier;
+  const requestedAddOn = body.add_on ?? (body.tier === "platinum" ? "coaching_program" : undefined);
+
+  if (requestedTier === "gold") {
+    return badRequest("gold is now an offline date add-on. Use the dates/create-payment flow instead.");
+  }
+
+  if ((requestedTier ? 1 : 0) + (requestedAddOn ? 1 : 0) !== 1) {
+    return badRequest("Provide exactly one of tier=paid or add_on=coaching_program.");
+  }
+
+  if (requestedTier && requestedTier !== "paid") {
+    return badRequest("tier must be paid.");
+  }
+
+  if (requestedAddOn && requestedAddOn !== "coaching_program") {
+    return badRequest("add_on must be coaching_program.");
   }
 
   try {
     const stripe = getStripeClient();
-    const tierConfig = getTierConfig(body.tier);
+    const productConfig = requestedTier
+      ? getMembershipTierConfig(requestedTier)
+      : getAddOnConfig(requestedAddOn as "coaching_program");
     const pool = await getDbPool();
 
     const userResult = await pool.request()
@@ -103,25 +122,35 @@ export async function paymentsCreateCheckout(
 
     const sessionConfig: Stripe.Checkout.SessionCreateParams = {
       customer: stripeCustomerId,
-      mode: tierConfig.mode,
+      mode: productConfig.mode,
       allow_promotion_codes: true,
-      line_items: [{ price: tierConfig.priceId, quantity: 1 }],
+      line_items: [{ price: productConfig.priceId, quantity: 1 }],
       success_url: "https://aur3m.com/dashboard?payment=success",
       cancel_url: "https://aur3m.com/dashboard?payment=cancelled",
-      metadata: {
-        userId: user.id,
-        tier: body.tier
-      }
+      metadata: requestedTier
+        ? {
+            userId: user.id,
+            tier: requestedTier
+          }
+        : {
+            userId: user.id,
+            paymentType: "coaching_program",
+            addOn: "coaching_program"
+          }
     };
 
     const session = await stripe.checkout.sessions.create(
-      tierConfig.mode === "subscription"
+      productConfig.mode === "subscription"
         ? {
             ...sessionConfig,
             payment_method_collection: "if_required"
           }
         : sessionConfig
     );
+
+    if (requestedAddOn === "coaching_program") {
+      await upsertCoachingProgramCheckoutSession(user.id, session.id);
+    }
 
     return {
       status: 200,

@@ -51,6 +51,21 @@ export async function paymentsStatus(
       };
     }
 
+    const coachingResult = await pool.request()
+      .input("user_id", sql.UniqueIdentifier, auth.sub)
+      .query(`
+        SELECT TOP 1 status, paid_at
+        FROM dbo.coaching_program_payments
+        WHERE user_id = @user_id;
+      `);
+
+    const coachingProgram = coachingResult.recordset[0] as
+      | {
+          status: string;
+          paid_at: Date | null;
+        }
+      | undefined;
+
     if (user.stripe_subscription_id) {
       const stripe = getStripeClient();
       const subscription = (await stripe.subscriptions.retrieve(user.stripe_subscription_id) as unknown) as Stripe.Subscription & {
@@ -63,7 +78,14 @@ export async function paymentsStatus(
           membership: user.membership,
           status: subscription.status,
           current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-          cancel_at_period_end: subscription.cancel_at_period_end
+          cancel_at_period_end: subscription.cancel_at_period_end,
+          add_ons: {
+            coaching_program: {
+              purchased: coachingProgram?.status === "paid",
+              status: coachingProgram?.status ?? "not_purchased",
+              paid_at: coachingProgram?.paid_at?.toISOString() ?? null
+            }
+          }
         }
       };
     }
@@ -74,7 +96,14 @@ export async function paymentsStatus(
         membership: user.membership,
         status: user.membership_status,
         current_period_end: null,
-        cancel_at_period_end: false
+        cancel_at_period_end: false,
+        add_ons: {
+          coaching_program: {
+            purchased: coachingProgram?.status === "paid",
+            status: coachingProgram?.status ?? "not_purchased",
+            paid_at: coachingProgram?.paid_at?.toISOString() ?? null
+          }
+        }
       }
     };
   } catch (error) {

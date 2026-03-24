@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 import { enqueueEmail } from "./emailQueue";
 
-type MembershipTier = "silver" | "gold" | "platinum";
+type MembershipTier = "paid" | "coaching_program";
 type EmailCopy = { from: string; subject: string; html: string };
 
 function getRequiredEnv(name: string): string {
@@ -16,16 +16,16 @@ function getRequiredEnv(name: string): string {
 
 function getEmailCopy(tier: MembershipTier): { subject: string; html: string } {
   switch (tier) {
-    case "silver":
+    case "paid":
       return {
-        subject: "Welcome to AUR3M Silver",
+        subject: "Your AUR3M paid membership is live",
         html: `
           <div style="margin:0;padding:32px 16px;background-color:#eef1f4;font-family:Georgia, 'Times New Roman', serif;color:#1b2430;">
             <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fbfcfd;border:1px solid #d6dde5;">
               <tr>
                 <td style="padding:20px 28px;border-bottom:1px solid #dde4eb;background:linear-gradient(135deg,#f6f8fb 0%,#dfe7ef 100%);">
-                  <div style="font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:#60758d;">AUR3M Silver</div>
-                  <div style="margin-top:10px;font-size:34px;line-height:1.15;color:#1b2430;">Your Silver access is now live</div>
+                  <div style="font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:#60758d;">AUR3M Paid</div>
+                  <div style="margin-top:10px;font-size:34px;line-height:1.15;color:#1b2430;">Your paid membership is now live</div>
                   <div style="margin-top:8px;font-size:16px;line-height:1.6;color:#44576d;">
                     You now have access to structured live calls inside AUR3M.
                   </div>
@@ -34,7 +34,7 @@ function getEmailCopy(tier: MembershipTier): { subject: string; html: string } {
               <tr>
                 <td style="padding:28px;">
                   <div style="font-size:17px;line-height:1.8;color:#2c3a4a;">
-                    Silver is designed to move things beyond passive browsing and into real-time interaction.
+                    Paid membership is designed to move things beyond passive browsing and into real-time interaction.
                   </div>
                   <table role="presentation" style="width:100%;margin-top:24px;border-collapse:separate;border-spacing:0 12px;">
                     <tr>
@@ -72,34 +72,34 @@ function getEmailCopy(tier: MembershipTier): { subject: string; html: string } {
           </div>
         `
       };
-    case "gold":
+    case "coaching_program":
       return {
-        subject: "Welcome to AUR3M Gold",
+        subject: "Your AUR3M coaching programme is confirmed",
         html: `
           <div style="margin:0;padding:32px 16px;background-color:#f6f1e8;font-family:Georgia, 'Times New Roman', serif;color:#2a2118;">
             <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdfa;border:1px solid #e2d6c8;">
               <tr>
                 <td style="padding:20px 28px;border-bottom:1px solid #eadfd3;background:linear-gradient(135deg,#fbf6ef 0%,#f1dfc5 100%);">
-                  <div style="font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:#9a7744;">AUR3M Gold</div>
-                  <div style="margin-top:10px;font-size:34px;line-height:1.15;color:#2a2118;">Your Gold membership is confirmed</div>
+                  <div style="font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:#9a7744;">AUR3M Coaching Programme</div>
+                  <div style="margin-top:10px;font-size:34px;line-height:1.15;color:#2a2118;">Your coaching programme is confirmed</div>
                   <div style="margin-top:8px;font-size:16px;line-height:1.6;color:#6a5540;">
-                    Gold is designed for members ready to move toward a real date.
+                    Your 3 month coaching programme is now underway.
                   </div>
                 </td>
               </tr>
               <tr>
                 <td style="padding:28px;">
                   <div style="font-size:17px;line-height:1.8;color:#47392c;">
-                    We will now take the next steps to arrange your date experience.
+                    We will now take the next steps to arrange your coaching programme.
                   </div>
                   <table role="presentation" style="width:100%;margin-top:24px;border-collapse:separate;border-spacing:0 12px;">
                     <tr>
                       <td style="width:44px;vertical-align:top;font-size:20px;color:#9a7744;">01</td>
-                      <td style="font-size:15px;line-height:1.7;color:#47392c;">Your Gold upgrade has been recorded successfully.</td>
+                      <td style="font-size:15px;line-height:1.7;color:#47392c;">Your coaching programme purchase has been recorded successfully.</td>
                     </tr>
                     <tr>
                       <td style="width:44px;vertical-align:top;font-size:20px;color:#9a7744;">02</td>
-                      <td style="font-size:15px;line-height:1.7;color:#47392c;">Our team will follow up with the relevant next steps for your date arrangement.</td>
+                      <td style="font-size:15px;line-height:1.7;color:#47392c;">Our team will follow up with the relevant next steps for your programme arrangement.</td>
                     </tr>
                     <tr>
                       <td style="width:44px;vertical-align:top;font-size:20px;color:#9a7744;">03</td>
@@ -120,62 +120,6 @@ function getEmailCopy(tier: MembershipTier): { subject: string; html: string } {
               </tr>
               <tr>
                 <td style="padding:22px 28px;border-top:1px solid #eadfd3;background-color:#fcf8f2;font-size:13px;line-height:1.7;color:#7a6754;">
-                  The AUR3M Team<br/>
-                  A trading style of JustProveIt Ltd
-                </td>
-              </tr>
-            </table>
-          </div>
-        `
-      };
-    case "platinum":
-      return {
-        subject: "Welcome to AUR3M Platinum",
-        html: `
-          <div style="margin:0;padding:32px 16px;background-color:#f1edf5;font-family:Georgia, 'Times New Roman', serif;color:#241c2b;">
-            <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fefcff;border:1px solid #ddd5e4;">
-              <tr>
-                <td style="padding:20px 28px;border-bottom:1px solid #e6deed;background:linear-gradient(135deg,#f8f5fb 0%,#e5dced 100%);">
-                  <div style="font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:#7a6791;">AUR3M Platinum</div>
-                  <div style="margin-top:10px;font-size:34px;line-height:1.15;color:#241c2b;">Welcome to Platinum</div>
-                  <div style="margin-top:8px;font-size:16px;line-height:1.6;color:#5d4f6d;">
-                    Your 3 month programme is now underway.
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td style="padding:28px;">
-                  <div style="font-size:17px;line-height:1.8;color:#3a3045;">
-                    Platinum is the most involved AUR3M experience, built for members who want a more guided and hands-on path.
-                  </div>
-                  <table role="presentation" style="width:100%;margin-top:24px;border-collapse:separate;border-spacing:0 12px;">
-                    <tr>
-                      <td style="width:44px;vertical-align:top;font-size:20px;color:#7a6791;">01</td>
-                      <td style="font-size:15px;line-height:1.7;color:#3a3045;">Your Platinum upgrade has been recorded and your programme is active.</td>
-                    </tr>
-                    <tr>
-                      <td style="width:44px;vertical-align:top;font-size:20px;color:#7a6791;">02</td>
-                      <td style="font-size:15px;line-height:1.7;color:#3a3045;">Our team will contact you with the next steps and programme coordination details.</td>
-                    </tr>
-                    <tr>
-                      <td style="width:44px;vertical-align:top;font-size:20px;color:#7a6791;">03</td>
-                      <td style="font-size:15px;line-height:1.7;color:#3a3045;">You can continue to access your account while the programme setup moves forward.</td>
-                    </tr>
-                  </table>
-                  <div style="margin-top:28px;padding:18px 20px;background-color:#f7f3fa;border-left:4px solid #8f7aa7;font-size:15px;line-height:1.7;color:#473b54;">
-                    Best next step: watch for our follow-up so the 3 month programme can begin properly.
-                  </div>
-                  <table role="presentation" style="margin-top:28px;border-collapse:collapse;">
-                    <tr>
-                      <td>
-                        <a href="https://aur3m.com/dashboard" style="display:inline-block;padding:14px 22px;background-color:#241c2b;color:#fefcff;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Open Dashboard</a>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-              <tr>
-                <td style="padding:22px 28px;border-top:1px solid #e6deed;background-color:#faf7fc;font-size:13px;line-height:1.7;color:#6e6180;">
                   The AUR3M Team<br/>
                   A trading style of JustProveIt Ltd
                 </td>
@@ -435,7 +379,7 @@ function getSignupFollowUpEmailCopies(username: string, alias: string): EmailCop
             <tr>
               <td style="padding:28px;font-size:15px;line-height:1.8;color:#342b25;">
                 <p style="margin:0 0 16px 0;">AUR3M is not supposed to stop at passive browsing.</p>
-                <p style="margin:0 0 16px 0;">If you want more direct interaction, Silver unlocks 3, 15, and 60 minute calls, Gold is built around dates, and Platinum is the full 3 month programme.</p>
+                <p style="margin:0 0 16px 0;">If you want more direct interaction, paid membership unlocks 3, 15, and 60 minute calls, offline dates are booked as an add-on, and the 3 month coaching programme is available separately.</p>
                 <div style="padding:18px 20px;background-color:#f8f3ec;border-left:4px solid #b08a5a;color:#3e342d;">
                   The idea is progression: from profile, to mutual interest, to conversation, to meeting.
                 </div>
@@ -586,7 +530,7 @@ function getDatePaymentReceivedEmailCopy(alias: string): EmailCopy {
     html: `
       <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
         <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
-          <tr><td style="padding:24px 28px;"><div style="font-size:30px;line-height:1.2;color:#1f1a17;">Payment received</div><p style="font-size:16px;line-height:1.8;color:#54473c;">Your Gold date payment is in. We are now waiting for ${safeAlias} to complete their side.</p></td></tr>
+          <tr><td style="padding:24px 28px;"><div style="font-size:30px;line-height:1.2;color:#1f1a17;">Payment received</div><p style="font-size:16px;line-height:1.8;color:#54473c;">Your offline date payment is in. We are now waiting for ${safeAlias} to complete their side.</p></td></tr>
         </table>
       </div>
     `
@@ -635,11 +579,11 @@ function getDateRefundIssuedEmailCopy(): EmailCopy {
 
   return {
     from,
-    subject: "Your AUR3M Gold date payment has been refunded",
+    subject: "Your AUR3M offline date payment has been refunded",
     html: `
       <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
         <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
-          <tr><td style="padding:24px 28px;"><div style="font-size:30px;line-height:1.2;color:#1f1a17;">Refund issued</div><p style="font-size:16px;line-height:1.8;color:#54473c;">The other side did not complete payment within the 30 day window, so your Gold date payment has been refunded in full.</p></td></tr>
+          <tr><td style="padding:24px 28px;"><div style="font-size:30px;line-height:1.2;color:#1f1a17;">Refund issued</div><p style="font-size:16px;line-height:1.8;color:#54473c;">The other side did not complete payment within the 30 day window, so your offline date payment has been refunded in full.</p></td></tr>
         </table>
       </div>
     `

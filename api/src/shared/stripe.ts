@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 
-type Tier = "silver" | "gold" | "platinum";
+export type MembershipTier = "paid";
+export type AddOnType = "coaching_program";
 
 export type TierConfig = {
   mode: "subscription" | "payment";
@@ -29,43 +30,52 @@ export function getStripeWebhookSecret(): string {
   return getRequiredEnv("STRIPE_WEBHOOK_SECRET");
 }
 
-export function getTierConfig(tier: Tier): TierConfig {
+function getFirstDefinedEnv(names: string[]): string {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value) {
+      return value;
+    }
+  }
+
+  throw new Error(`Missing one of the required environment variables: ${names.join(", ")}`);
+}
+
+export function getMembershipTierConfig(tier: MembershipTier): TierConfig {
   switch (tier) {
-    case "silver":
+    case "paid":
       return {
         mode: "subscription",
-        priceId: getRequiredEnv("STRIPE_PRICE_ID_SILVER")
-      };
-    case "gold":
-      return {
-        mode: "payment",
-        priceId: getRequiredEnv("STRIPE_PRICE_ID_GOLD")
-      };
-    case "platinum":
-      return {
-        mode: "payment",
-        priceId: getRequiredEnv("STRIPE_PRICE_ID_PLATINUM")
+        priceId: getFirstDefinedEnv(["STRIPE_PRICE_ID_PAID", "STRIPE_PRICE_ID_SILVER"])
       };
     default:
-      throw new Error("Invalid tier.");
+      throw new Error("Invalid membership tier.");
   }
 }
 
-export function getCurrentTierForMembership(membership: "free" | Tier): number {
+export function getAddOnConfig(addOn: AddOnType): TierConfig {
+  switch (addOn) {
+    case "coaching_program":
+      return {
+        mode: "payment",
+        priceId: getFirstDefinedEnv(["STRIPE_PRICE_ID_COACHING_PROGRAM", "STRIPE_PRICE_ID_PLATINUM"])
+      };
+    default:
+      throw new Error("Invalid add-on.");
+  }
+}
+
+export function getCurrentTierForMembership(membership: "free" | MembershipTier): number {
   switch (membership) {
     case "free":
       return 0;
-    case "silver":
+    case "paid":
       return 1;
-    case "gold":
-      return 2;
-    case "platinum":
-      return 3;
     default:
       throw new Error("Invalid membership tier.");
   }
 }
 
 export function getDatePaymentPriceId(): string {
-  return getRequiredEnv("STRIPE_PRICE_ID_GOLD_DATE");
+  return getFirstDefinedEnv(["STRIPE_PRICE_ID_OFFLINE_DATE", "STRIPE_PRICE_ID_GOLD_DATE"]);
 }

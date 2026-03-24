@@ -2,7 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import sql from "mssql";
 import { requireAuth } from "../shared/auth";
 import { getDbPool } from "../shared/db";
-import { getDatePaymentState, tryBookGoldDate } from "../shared/dateFlow";
+import { getDatePaymentState, tryBookOfflineDate } from "../shared/dateFlow";
 import { getRelationshipVerificationState } from "../shared/userVerifications";
 
 type DateAvailabilityRequest = {
@@ -111,7 +111,7 @@ export async function dateAvailability(
         `);
     }
 
-    const bookingStatus = await tryBookGoldDate(body.relationship_id);
+    const bookingStatus = await tryBookOfflineDate(body.relationship_id);
 
     return {
       status: 200,

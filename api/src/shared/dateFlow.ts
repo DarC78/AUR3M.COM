@@ -224,24 +224,6 @@ export async function markDatePaymentPaid(
       WHERE relationship_id = @relationship_id;
     `);
 
-  await pool.request()
-    .input("user_id", sql.UniqueIdentifier, userId)
-    .input("membership", sql.NVarChar(20), "gold")
-    .input("current_tier", sql.Int, 2)
-    .query(`
-      UPDATE dbo.users
-      SET membership = CASE
-                         WHEN current_tier < @current_tier THEN @membership
-                         ELSE membership
-                       END,
-          current_tier = CASE
-                           WHEN current_tier < @current_tier THEN @current_tier
-                           ELSE current_tier
-                         END,
-          updated_at = SYSUTCDATETIME()
-      WHERE id = @user_id;
-    `);
-
   const relationship = await getRelationshipParticipants(pool, relationshipId);
 
   if (!relationship) {
@@ -303,7 +285,7 @@ export async function getDatePaymentState(
   };
 }
 
-export async function tryBookGoldDate(relationshipId: string): Promise<"waiting" | "waiting_for_verification" | "no_match" | "booked"> {
+export async function tryBookOfflineDate(relationshipId: string): Promise<"waiting" | "waiting_for_verification" | "no_match" | "booked"> {
   const pool = await getDbPool();
   const relationship = await getRelationshipParticipants(pool, relationshipId);
 

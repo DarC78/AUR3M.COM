@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
 import sql from "mssql";
 import Stripe from "stripe";
+import { markCoachingProgramPaid } from "../shared/coachingPrograms";
 import { getDbPool } from "../shared/db";
 import { markDatePaymentPaid } from "../shared/dateFlow";
 import { sendMembershipUpgradeEmail } from "../shared/email";
@@ -13,7 +14,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   const paymentType = session.metadata?.paymentType;
   const relationshipId = session.metadata?.relationshipId;
 
-  if (paymentType === "gold_date" && relationshipId && userId) {
+  if ((paymentType === "offline_date" || paymentType === "gold_date") && relationshipId && userId) {
     const paymentIntentId =
       typeof session.payment_intent === "string"
         ? session.payment_intent
@@ -28,7 +29,32 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     return;
   }
 
-  if (!userId || !tier || !["silver", "gold", "platinum"].includes(tier)) {
+  if (paymentType === "coaching_program" && userId) {
+    const paymentIntentId =
+      typeof session.payment_intent === "string"
+        ? session.payment_intent
+        : session.payment_intent?.id ?? null;
+
+    await markCoachingProgramPaid(userId, session.id, paymentIntentId);
+    const pool = await getDbPool();
+    const emailResult = await pool.request()
+      .input("id", sql.UniqueIdentifier, userId)
+      .query(`
+        SELECT email
+        FROM dbo.users
+        WHERE id = @id;
+      `);
+
+    const user = emailResult.recordset[0] as { email: string } | undefined;
+    if (user?.email) {
+      await sendMembershipUpgradeEmail(user.email, "coaching_program");
+    }
+    return;
+  }
+
+  const normalizedTier = tier === "silver" ? "paid" : tier;
+
+  if (!userId || !normalizedTier || normalizedTier !== "paid") {
     return;
   }
 
@@ -44,8 +70,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 
   const updateResult = await pool.request()
     .input("id", sql.UniqueIdentifier, userId)
-    .input("membership", sql.NVarChar(20), tier)
-    .input("current_tier", sql.Int, getCurrentTierForMembership(tier as "silver" | "gold" | "platinum"))
+    .input("membership", sql.NVarChar(20), normalizedTier)
+    .input("current_tier", sql.Int, getCurrentTierForMembership(normalizedTier as "paid"))
     .input("membership_status", sql.NVarChar(50), "active")
     .input("stripe_subscription_id", sql.NVarChar(255), subscriptionId)
     .input("stripe_customer_id", sql.NVarChar(255), customerId)
@@ -69,7 +95,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   const updatedUser = updateResult.recordset[0] as { email: string } | undefined;
 
   if (updatedUser?.email) {
-    await sendMembershipUpgradeEmail(updatedUser.email, tier as "silver" | "gold" | "platinum");
+    await sendMembershipUpgradeEmail(updatedUser.email, normalizedTier as "paid");
   }
 }
 
@@ -130,14 +156,8 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
     .input("membership_status", sql.NVarChar(50), "cancelled")
     .query(`
       UPDATE dbo.users
-      SET membership = CASE
-                         WHEN current_tier <= 1 THEN @membership
-                         ELSE membership
-                       END,
-          current_tier = CASE
-                           WHEN current_tier <= 1 THEN @current_tier
-                           ELSE current_tier
-                         END,
+      SET membership = @membership,
+          current_tier = @current_tier,
           membership_status = @membership_status
       WHERE stripe_subscription_id = @stripe_subscription_id;
     `);
