@@ -57,7 +57,8 @@ export async function login(
           password_hash,
           membership,
           current_tier,
-          is_active
+          is_active,
+          email_verified
         FROM dbo.users
         WHERE email = @email;
       `);
@@ -72,6 +73,7 @@ export async function login(
           membership: string;
           current_tier: number;
           is_active: boolean;
+          email_verified: boolean;
         }
       | undefined;
 
@@ -91,6 +93,16 @@ export async function login(
         status: 401,
         jsonBody: {
           error: "Invalid email or password."
+        }
+      };
+    }
+
+    if (!user.email_verified) {
+      return {
+        status: 403,
+        jsonBody: {
+          error: "email_not_verified",
+          message: "Please verify your email first"
         }
       };
     }

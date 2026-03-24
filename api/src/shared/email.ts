@@ -151,6 +151,41 @@ function getPublicAppBaseUrl(): string {
   return process.env.PUBLIC_APP_URL ?? "https://aur3m.com";
 }
 
+function getVerificationEmailCopy(username: string, verificationUrl: string): EmailCopy {
+  const { from } = getResendClient();
+  const safeUsername = escapeHtml(username);
+  const safeUrl = escapeHtml(verificationUrl);
+
+  return {
+    from,
+    subject: "Verify your AUR3M email",
+    html: `
+      <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
+        <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
+          <tr>
+            <td style="padding:20px 28px;border-bottom:1px solid #e7ddd2;background:linear-gradient(135deg,#f7f1e8 0%,#efe2d1 100%);">
+              <div style="font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:#8a6f52;">AUR3M</div>
+              <div style="margin-top:10px;font-size:32px;line-height:1.15;color:#1f1a17;">Verify your email</div>
+              <div style="margin-top:8px;font-size:16px;line-height:1.6;color:#54473c;">
+                One more step before you can sign in, ${safeUsername}.
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px;font-size:15px;line-height:1.8;color:#342b25;">
+              <p style="margin:0 0 16px 0;">Click the button below to verify your email address and activate your account.</p>
+              <p style="margin:24px 0;">
+                <a href="${safeUrl}" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Verify Email</a>
+              </p>
+              <p style="margin:0;color:#6a5a4b;">This verification link expires in 24 hours.</p>
+            </td>
+          </tr>
+        </table>
+      </div>
+    `
+  };
+}
+
 function getSignupWelcomeEmailCopy(username: string, alias: string): EmailCopy {
   const { from } = getResendClient();
   const safeUsername = escapeHtml(username);
@@ -620,6 +655,15 @@ export async function sendPasswordResetEmail(
 ): Promise<void> {
   const copy = getPasswordResetEmailCopy(username, resetToken);
 
+  await sendEmail(copy.from, email, copy.subject, copy.html);
+}
+
+export async function sendVerificationEmail(
+  email: string,
+  username: string,
+  verificationUrl: string
+): Promise<void> {
+  const copy = getVerificationEmailCopy(username, verificationUrl);
   await sendEmail(copy.from, email, copy.subject, copy.html);
 }
 

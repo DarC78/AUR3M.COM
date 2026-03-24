@@ -2,7 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/fu
 import { hash } from "bcryptjs";
 import sql from "mssql";
 import { getDbPool } from "../shared/db";
-import { enqueueSignupFollowUpEmails, sendSignupWelcomeEmail } from "../shared/email";
+import { issueEmailVerificationToken } from "../shared/emailVerification";
 
 type SignupRequest = {
   username?: string;
@@ -99,6 +99,7 @@ export async function signup(
       .input("current_tier", sql.Int, 0)
       .input("is_test_member", sql.Bit, false)
       .input("timezone", sql.NVarChar(100), "Europe/London")
+      .input("email_verified", sql.Bit, false)
       .query(`
         INSERT INTO dbo.users (
           email,
@@ -113,16 +114,14 @@ export async function signup(
           membership,
           current_tier,
           is_test_member,
-          timezone
+          timezone,
+          email_verified
         )
         OUTPUT
           INSERTED.id,
           INSERTED.email,
           INSERTED.username,
-          INSERTED.display_name,
-          INSERTED.membership,
-          INSERTED.current_tier,
-          INSERTED.created_at
+          INSERTED.display_name
         VALUES (
           @email,
           @username,
@@ -136,7 +135,8 @@ export async function signup(
           @membership,
           @current_tier,
           @is_test_member,
-          @timezone
+          @timezone,
+          @email_verified
         );
       `);
 
@@ -145,32 +145,19 @@ export async function signup(
       email: string;
       username: string;
       display_name: string;
-      membership: string;
-      current_tier: number;
-      created_at: string;
     };
 
     try {
-      await sendSignupWelcomeEmail(newUser.email, newUser.username, newUser.display_name);
+      await issueEmailVerificationToken(pool, newUser.id, newUser.email, newUser.username);
     } catch (emailError) {
-      context.error("Signup welcome email failed.", emailError);
-    }
-
-    try {
-      await enqueueSignupFollowUpEmails(
-        newUser.email,
-        newUser.username,
-        newUser.display_name,
-        new Date(newUser.created_at)
-      );
-    } catch (emailError) {
-      context.error("Signup follow-up email scheduling failed.", emailError);
+      context.error("Signup verification email failed.", emailError);
     }
 
     return {
       status: 201,
       jsonBody: {
-        user: newUser
+        message: "Verification email sent",
+        email_verified: false
       }
     };
   } catch (error) {
