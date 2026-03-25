@@ -137,3 +137,13 @@ SELECT
     CAST(CASE WHEN source.nation = target.nation THEN 1 ELSE 0 END AS BIT) AS same_nation
 FROM dbo.travel_regions source
 CROSS JOIN dbo.travel_regions target;
+
+UPDATE dbo.users
+SET travel_region_code = 'ENG_LON_CENTRAL'
+WHERE travel_region_code IS NULL
+  AND location IS NOT NULL
+  AND LTRIM(RTRIM(LOWER(location))) IN (
+      'london',
+      'central london',
+      'greater london'
+  );
