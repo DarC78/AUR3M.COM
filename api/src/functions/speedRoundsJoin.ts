@@ -156,7 +156,8 @@ export async function speedRoundsJoin(
         SELECT TOP 1
           id,
           room_name,
-          status
+          status,
+          camera_off
         FROM dbo.speed_round_sessions
         WHERE participant_a_id = @participant_id OR participant_b_id = @participant_id
         ORDER BY created_at DESC;
@@ -167,6 +168,7 @@ export async function speedRoundsJoin(
           id: string;
           room_name: string;
           status: string;
+          camera_off: boolean;
         }
       | undefined;
 
@@ -188,7 +190,8 @@ export async function speedRoundsJoin(
         jsonBody: {
           matched: true,
           session_id: existingSession.id,
-          room_name: existingSession.room_name
+          room_name: existingSession.room_name,
+          camera_off: existingSession.camera_off
         }
       };
     }
@@ -196,7 +199,7 @@ export async function speedRoundsJoin(
     const transaction = new sql.Transaction(pool);
     await transaction.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
 
-    let session: { id: string; room_name: string } | undefined;
+    let session: { id: string; room_name: string; camera_off: boolean } | undefined;
     let partnerUserId: string | undefined;
 
     try {
@@ -222,7 +225,8 @@ export async function speedRoundsJoin(
           SELECT TOP 1
             id,
             room_name,
-            status
+            status,
+            camera_off
           FROM dbo.speed_round_sessions WITH (UPDLOCK, HOLDLOCK)
           WHERE participant_a_id = @participant_id
              OR participant_b_id = @participant_id
@@ -230,7 +234,7 @@ export async function speedRoundsJoin(
         `);
 
       const existingTransactionalSession = existingTransactionalSessionResult.recordset[0] as
-        | { id: string; room_name: string; status: string }
+        | { id: string; room_name: string; status: string; camera_off: boolean }
         | undefined;
 
       if (existingTransactionalSession && ["matched", "active"].includes(existingTransactionalSession.status)) {
@@ -241,12 +245,25 @@ export async function speedRoundsJoin(
           .input("user_id", sql.UniqueIdentifier, authUserId)
           .input("participant_id", sql.UniqueIdentifier, currentParticipant.id)
           .query(`
-            SELECT TOP 1 p.id, p.user_id
+            SELECT TOP 1
+              p.id,
+              p.user_id,
+              CAST(
+                CASE
+                  WHEN current_member.prefers_camera_off_3min = 1
+                   AND candidate_member.prefers_camera_off_3min = 1 THEN 1
+                  ELSE 0
+                END
+                AS BIT
+              ) AS camera_off
             FROM dbo.speed_round_participants p WITH (UPDLOCK, HOLDLOCK, ROWLOCK)
             INNER JOIN dbo.users AS current_member
               ON current_member.id = @user_id
             INNER JOIN dbo.users AS candidate_member
               ON candidate_member.id = p.user_id
+            LEFT JOIN dbo.travel_region_distances region_distance
+              ON region_distance.from_region_code = current_member.travel_region_code
+             AND region_distance.to_region_code = candidate_member.travel_region_code
             WHERE p.event_id = @event_id
               AND p.user_id <> @user_id
               AND p.status = 'waiting'
@@ -278,6 +295,22 @@ export async function speedRoundsJoin(
                 )
               )
             ORDER BY
+              CASE
+                WHEN current_member.travel_region_code IS NOT NULL
+                 AND current_member.travel_region_code = candidate_member.travel_region_code THEN 0
+                WHEN current_member.travel_region_code IS NOT NULL
+                 AND candidate_member.travel_region_code IS NOT NULL THEN 1
+                ELSE 2
+              END ASC,
+              CASE
+                WHEN current_member.travel_region_code IS NOT NULL
+                 AND candidate_member.travel_region_code IS NOT NULL
+                 AND ISNULL(region_distance.same_nation, 0) = 1 THEN 0
+                WHEN current_member.travel_region_code IS NOT NULL
+                 AND candidate_member.travel_region_code IS NOT NULL THEN 1
+                ELSE 2
+              END ASC,
+              ISNULL(region_distance.distance_km, 99999) ASC,
               CASE
                 WHEN EXISTS (
                   SELECT 1
@@ -326,10 +359,16 @@ export async function speedRoundsJoin(
                 WHERE historical.session_tier = '3min'
                   AND (historical_a.user_id = p.user_id OR historical_b.user_id = p.user_id)
               ) ASC,
+              CASE
+                WHEN current_member.prefers_camera_off_3min = candidate_member.prefers_camera_off_3min THEN 0
+                ELSE 1
+              END ASC,
               p.joined_at ASC;
           `);
 
-        const partner = partnerResult.recordset[0] as { id: string; user_id: string } | undefined;
+        const partner = partnerResult.recordset[0] as
+          | { id: string; user_id: string; camera_off: boolean }
+          | undefined;
 
         if (partner) {
           partnerUserId = partner.user_id;
@@ -342,19 +381,22 @@ export async function speedRoundsJoin(
             .input("participant_a_id", sql.UniqueIdentifier, currentParticipant.id)
             .input("participant_b_id", sql.UniqueIdentifier, partner.id)
             .input("room_name", sql.NVarChar(100), sessionRoomName)
+            .input("camera_off", sql.Bit, partner.camera_off)
             .query(`
               INSERT INTO dbo.speed_round_sessions (
                 event_id,
                 participant_a_id,
                 participant_b_id,
-                room_name
+                room_name,
+                camera_off
               )
-              OUTPUT INSERTED.id, INSERTED.room_name
+              OUTPUT INSERTED.id, INSERTED.room_name, INSERTED.camera_off
               VALUES (
                 @event_id,
                 @participant_a_id,
                 @participant_b_id,
-                @room_name
+                @room_name,
+                @camera_off
               );
 
               UPDATE dbo.speed_round_participants
@@ -362,7 +404,7 @@ export async function speedRoundsJoin(
               WHERE id IN (@participant_a_id, @participant_b_id);
             `);
 
-          session = sessionResult.recordset[0] as { id: string; room_name: string };
+          session = sessionResult.recordset[0] as { id: string; room_name: string; camera_off: boolean };
         }
       }
 
@@ -422,13 +464,14 @@ export async function speedRoundsJoin(
 
     return {
       status: 200,
-      jsonBody: {
-        matched: true,
-        status: "matched",
-        session_id: session.id,
-        room_name: session.room_name
-      }
-    };
+        jsonBody: {
+          matched: true,
+          status: "matched",
+          session_id: session.id,
+          room_name: session.room_name,
+          camera_off: session.camera_off
+        }
+      };
   } catch (error) {
     context.error("Speed round join failed.", error);
 

@@ -22,7 +22,7 @@ export async function members(
 
   const gender = request.query.get("gender")?.trim() || null;
   const ageBracket = request.query.get("age_bracket")?.trim() || null;
-  const location = request.query.get("location")?.trim() || null;
+  const travelRegionCode = request.query.get("travel_region_code")?.trim().toUpperCase() || null;
 
   if (gender && !allowedGenders.has(gender)) {
     return badRequest("gender is invalid.");
@@ -37,7 +37,7 @@ export async function members(
     const result = await pool.request()
       .input("gender", sql.NVarChar(50), gender)
       .input("age_bracket", sql.NVarChar(20), ageBracket)
-      .input("location", sql.NVarChar(150), location)
+      .input("travel_region_code", sql.NVarChar(50), travelRegionCode)
       .query(`
         SELECT TOP (100)
           id,
@@ -48,6 +48,7 @@ export async function members(
           gender,
           age_bracket,
           location,
+          travel_region_code,
           profession,
           COUNT(*) OVER () AS total_count
         FROM (
@@ -60,13 +61,14 @@ export async function members(
             gender,
             age_bracket,
             location,
+            travel_region_code,
             profession,
             created_at
           FROM dbo.users
           WHERE is_active = 1
             AND (@gender IS NULL OR gender = @gender)
             AND (@age_bracket IS NULL OR age_bracket = @age_bracket)
-            AND (@location IS NULL OR location LIKE '%' + @location + '%')
+            AND (@travel_region_code IS NULL OR travel_region_code = @travel_region_code)
         ) AS filtered_users
         ORDER BY created_at DESC;
       `);

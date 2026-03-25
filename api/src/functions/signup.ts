@@ -11,6 +11,7 @@ type SignupRequest = {
   gender?: "male" | "female" | "non-binary" | "prefer-not-to-say";
   age_bracket?: "18-25" | "26-35" | "36-45" | "46-55" | "55+";
   location?: string;
+  travel_region_code?: string;
   profession?: string;
   interested_in?: "men" | "women" | "both";
 };
@@ -58,10 +59,6 @@ export async function signup(
     return badRequest("password must be at least 8 characters.");
   }
 
-  if (!isNonEmptyString(body.location)) {
-    return badRequest("location is required.");
-  }
-
   if (!isNonEmptyString(body.profession)) {
     return badRequest("profession is required.");
   }
@@ -81,9 +78,37 @@ export async function signup(
   const normalizedEmail = body.email.trim().toLowerCase();
   const username = body.username.trim();
   const passwordHash = await hash(body.password, 12);
+  const travelRegionCode = typeof body.travel_region_code === "string"
+    ? body.travel_region_code.trim().toUpperCase()
+    : null;
 
   try {
     const pool = await getDbPool();
+    let resolvedLocation = isNonEmptyString(body.location) ? body.location.trim() : null;
+
+    if (travelRegionCode) {
+      const travelRegionResult = await pool.request()
+        .input("code", sql.NVarChar(50), travelRegionCode)
+        .query(`
+          SELECT TOP 1 code, name
+          FROM dbo.travel_regions
+          WHERE code = @code;
+        `);
+
+      const travelRegion = travelRegionResult.recordset[0] as { code: string; name: string } | undefined;
+
+      if (!travelRegion) {
+        return badRequest("travel_region_code is invalid.");
+      }
+
+      if (!resolvedLocation) {
+        resolvedLocation = travelRegion.name;
+      }
+    }
+
+    if (!resolvedLocation) {
+      return badRequest("travel_region_code is required.");
+    }
 
     const result = await pool.request()
       .input("email", sql.NVarChar(255), normalizedEmail)
@@ -92,12 +117,14 @@ export async function signup(
       .input("password_hash", sql.NVarChar(255), passwordHash)
       .input("gender", sql.NVarChar(50), body.gender)
       .input("age_bracket", sql.NVarChar(20), body.age_bracket)
-      .input("location", sql.NVarChar(150), body.location.trim())
+      .input("location", sql.NVarChar(150), resolvedLocation)
+      .input("travel_region_code", sql.NVarChar(50), travelRegionCode)
       .input("profession", sql.NVarChar(150), body.profession.trim())
       .input("interested_in", sql.NVarChar(20), body.interested_in)
       .input("membership", sql.NVarChar(20), "free")
       .input("current_tier", sql.Int, 0)
       .input("is_test_member", sql.Bit, false)
+      .input("prefers_camera_off_3min", sql.Bit, false)
       .input("timezone", sql.NVarChar(100), "Europe/London")
       .input("email_verified", sql.Bit, false)
       .query(`
@@ -109,11 +136,13 @@ export async function signup(
           gender,
           age_bracket,
           location,
+          travel_region_code,
           profession,
           interested_in,
           membership,
           current_tier,
           is_test_member,
+          prefers_camera_off_3min,
           timezone,
           email_verified
         )
@@ -130,11 +159,13 @@ export async function signup(
           @gender,
           @age_bracket,
           @location,
+          @travel_region_code,
           @profession,
           @interested_in,
           @membership,
           @current_tier,
           @is_test_member,
+          @prefers_camera_off_3min,
           @timezone,
           @email_verified
         );

@@ -76,7 +76,8 @@ export async function speedRoundsSessionStatus(
         SELECT TOP 1
           id,
           room_name,
-          status
+          status,
+          camera_off
         FROM dbo.speed_round_sessions
         WHERE participant_a_id = @participant_id
            OR participant_b_id = @participant_id
@@ -88,6 +89,7 @@ export async function speedRoundsSessionStatus(
           id: string;
           room_name: string;
           status: string;
+          camera_off: boolean;
         }
       | undefined;
 
@@ -98,7 +100,8 @@ export async function speedRoundsSessionStatus(
           joined: true,
           matched: true,
           session_id: session.id,
-          room_name: session.room_name
+          room_name: session.room_name,
+          camera_off: session.camera_off
         }
       };
     }

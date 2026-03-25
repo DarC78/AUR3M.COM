@@ -144,8 +144,18 @@ function escapeHtml(value: string): string {
 function getResendClient(): { resend: Resend; from: string } {
   return {
     resend: new Resend(getRequiredEnv("RESEND_API_KEY")),
-    from: process.env.RESEND_FROM_EMAIL ?? "AUR3M <hello@aur3m.com>"
+    from: process.env.RESEND_FROM_EMAIL ?? "Adrian <hello@aur3m.com>"
   };
+}
+
+function withReplyFooter(html: string): string {
+  const replyFooter = `
+    <div style="width:100%;max-width:640px;margin:16px auto 0 auto;font-family:Georgia, 'Times New Roman', serif;font-size:13px;line-height:1.7;color:#6a5a4b;text-align:left;">
+      If you have any questions, please just reply and let me know. We read and reply to every single email.
+    </div>
+  `;
+
+  return `${html}${replyFooter}`;
 }
 
 function getPublicAppBaseUrl(): string {
@@ -199,59 +209,72 @@ function getVerificationEmailCopy(email: string, username: string, verificationU
 
 function getSignupWelcomeEmailCopy(email: string, username: string, alias: string): EmailCopy {
   const { from } = getResendClient();
-  const safeUsername = escapeHtml(username);
-  const safeAlias = escapeHtml(alias);
   const openDashboardUrl = getTrackedHref(email, "signup_welcome", "open_dashboard", "https://aur3m.com/dashboard");
-  const membershipOptionsUrl = getTrackedHref(email, "signup_welcome", "view_membership_options", "https://aur3m.com/subscription");
 
   return {
     from,
-    subject: "Welcome to AUR3M",
+    subject: "Welcome to AUR3M - let's do this differently",
     html: `
       <div style="margin:0;padding:32px 16px;background-color:#f4efe8;font-family:Georgia, 'Times New Roman', serif;color:#1f1a17;">
         <table role="presentation" style="width:100%;max-width:640px;margin:0 auto;border-collapse:collapse;background-color:#fffdf9;border:1px solid #ded4c7;">
           <tr>
             <td style="padding:20px 28px;border-bottom:1px solid #e7ddd2;background:linear-gradient(135deg,#f7f1e8 0%,#efe2d1 100%);">
               <div style="font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:#8a6f52;">AUR3M</div>
-              <div style="margin-top:10px;font-size:34px;line-height:1.15;color:#1f1a17;">Welcome, ${safeUsername}</div>
-              <div style="margin-top:8px;font-size:16px;line-height:1.6;color:#54473c;">
-                Your profile is now live on the <strong>Free tier</strong> under the alias <strong>${safeAlias}</strong>.
-              </div>
+              <div style="margin-top:10px;font-size:34px;line-height:1.15;color:#1f1a17;">Let's do this differently</div>
             </td>
           </tr>
           <tr>
-            <td style="padding:28px;">
-              <div style="font-size:17px;line-height:1.8;color:#342b25;">
-                AUR3M is built for people who want a more intentional route from introduction to real connection.
+            <td style="padding:28px;font-size:15px;line-height:1.9;color:#342b25;">
+              <p style="margin:0 0 18px 0;">Hi,</p>
+              <p style="margin:0 0 18px 0;">I am Adrian Defta, founder and CEO of AUR3M. Welcome to the community where we help people find their partners. We are conversation first.</p>
+              <p style="margin:0 0 18px 0;">Let me start with something simple.</p>
+              <p style="margin:0 0 18px 0;">35% of adults between 30 and 45 would like to be in a relationship.</p>
+              <p style="margin:0 0 18px 0;">And yet... most of them aren't.</p>
+              <p style="margin:0 0 18px 0;">Why?</p>
+              <p style="margin:0 0 18px 0;">It's not because they don't want it.<br/>It's not because they're not ready.</p>
+              <p style="margin:0 0 18px 0;">It's because they don't meet enough people.</p>
+              <p style="margin:0 0 18px 0;">And the reason for that is even simpler:</p>
+              <p style="margin:0 0 18px 0;">There is too much pressure on the first interaction.</p>
+              <p style="margin:0 0 18px 0;">On most apps, everything is decided in seconds.<br/>A photo. A swipe. A quick message.</p>
+              <p style="margin:0 0 18px 0;">And then...</p>
+              <p style="margin:0 0 18px 0;">Nothing.</p>
+              <p style="margin:0 0 18px 0;">No reply.<br/>No real conversation.<br/>Just silence.</p>
+              <p style="margin:0 0 18px 0;">We've normalised a system where people are constantly exposed to each other... but rarely actually connect.</p>
+              <p style="margin:0 0 18px 0;">Now imagine something different.</p>
+              <p style="margin:0 0 18px 0;">A guy walks into a bar.</p>
+              <p style="margin:0 0 18px 0;">In a typical night, he might speak to 2 or 3 people.<br/>Maybe none of them are a good match.</p>
+              <p style="margin:0 0 18px 0;">But what if the bar worked differently?</p>
+              <p style="margin:0 0 18px 0;">What if, in the first hour, he could speak to 20-30 people... just for 2-3 minutes each.</p>
+              <p style="margin:0 0 18px 0;">No pressure.<br/>No expectations.<br/>Just a short, genuine exchange.</p>
+              <p style="margin:0 0 18px 0;">From there, he chooses 3-5 people to speak to for 15 minutes.</p>
+              <p style="margin:0 0 18px 0;">Now there's a bit more depth.<br/>Shared interests. Real curiosity.</p>
+              <p style="margin:0 0 18px 0;">Then he picks 1-2 people for a longer conversation.<br/>An hour. Camera on. Fully present.</p>
+              <p style="margin:0 0 18px 0;">And only after that...</p>
+              <p style="margin:0 0 18px 0;">He decides if he wants to meet one of them for dinner the next day.</p>
+              <p style="margin:0 0 18px 0;">That's exactly what AUR3M is built to do.</p>
+              <div style="margin:0 0 18px 0;padding:18px 20px;background-color:#f8f3ec;border-left:4px solid #b08a5a;color:#3e342d;">
+                We give you:<br/><br/>
+                - 20 short conversations with people in your interest group<br/>
+                - 3-5 deeper conversations with those you choose<br/>
+                - 1-2 meaningful, real exchanges<br/><br/>
+                Every day!
               </div>
-              <table role="presentation" style="width:100%;margin-top:24px;border-collapse:separate;border-spacing:0 12px;">
-                <tr>
-                  <td style="width:44px;vertical-align:top;font-size:20px;color:#8a6f52;">01</td>
-                  <td style="font-size:15px;line-height:1.7;color:#342b25;">You join the platform under your alias rather than your real name.</td>
-                </tr>
-                <tr>
-                  <td style="width:44px;vertical-align:top;font-size:20px;color:#8a6f52;">02</td>
-                  <td style="font-size:15px;line-height:1.7;color:#342b25;">You explore compatible members and express interest where there is genuine potential.</td>
-                </tr>
-                <tr>
-                  <td style="width:44px;vertical-align:top;font-size:20px;color:#8a6f52;">03</td>
-                  <td style="font-size:15px;line-height:1.7;color:#342b25;">When interest is mutual, a connection is created and things can move forward.</td>
-                </tr>
-                <tr>
-                  <td style="width:44px;vertical-align:top;font-size:20px;color:#8a6f52;">04</td>
-                  <td style="font-size:15px;line-height:1.7;color:#342b25;">If you want a faster path, paid tiers unlock live calls, dates, and the 3 month programme.</td>
-                </tr>
-              </table>
-              <div style="margin-top:28px;padding:18px 20px;background-color:#f8f3ec;border-left:4px solid #b08a5a;font-size:15px;line-height:1.7;color:#3e342d;">
-                Best next step: sign in, review your profile, and start exploring members.
-              </div>
+              <p style="margin:0 0 18px 0;">No photos at the beginning.<br/>No pressure to impress instantly.</p>
+              <p style="margin:0 0 18px 0;">Just conversation first.</p>
+              <p style="margin:0 0 18px 0;">Everything starts anonymously.</p>
+              <p style="margin:0 0 18px 0;">Camera on or off - only if both people agree.<br/>At every stage, you decide who you want to continue with.</p>
+              <p style="margin:0 0 18px 0;">And one thing is very important:</p>
+              <p style="margin:0 0 18px 0;">We never share your contact details.<br/>Ever.</p>
+              <p style="margin:0 0 18px 0;">The platform doesn't even allow it.</p>
+              <p style="margin:0 0 18px 0;">You meet as strangers.<br/>You explore the connection.<br/>And only if it feels right... you choose to take it further.</p>
+              <p style="margin:0 0 18px 0;">This is not about more matches.</p>
+              <p style="margin:0 0 18px 0;">It's about better ones.</p>
+              <p style="margin:0 0 18px 0;">Welcome to AUR3M.</p>
+              <p style="margin:0 0 24px 0;">We're glad you're here.</p>
               <table role="presentation" style="margin-top:28px;border-collapse:collapse;">
                 <tr>
-                  <td style="padding:0 12px 12px 0;">
-                    <a href="${openDashboardUrl}" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Open Dashboard</a>
-                  </td>
                   <td style="padding:0 0 12px 0;">
-                    <a href="${membershipOptionsUrl}" style="display:inline-block;padding:14px 22px;border:1px solid #1f1a17;color:#1f1a17;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">View Membership Options</a>
+                    <a href="${openDashboardUrl}" style="display:inline-block;padding:14px 22px;background-color:#1f1a17;color:#fffdf9;text-decoration:none;font-size:14px;letter-spacing:0.04em;text-transform:uppercase;">Open Dashboard</a>
                   </td>
                 </tr>
               </table>
@@ -259,6 +282,7 @@ function getSignupWelcomeEmailCopy(email: string, username: string, alias: strin
           </tr>
           <tr>
             <td style="padding:22px 28px;border-top:1px solid #e7ddd2;background-color:#fbf7f1;font-size:13px;line-height:1.7;color:#6a5a4b;">
+              Adrian Defta<br/>
               The AUR3M Team<br/>
               A trading style of JustProveIt Ltd
             </td>
@@ -747,7 +771,7 @@ export async function sendEmail(from: string, to: string, subject: string, html:
     from,
     to,
     subject,
-    html
+    html: withReplyFooter(html)
   });
 }
 

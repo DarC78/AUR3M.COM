@@ -7,6 +7,8 @@ type ProfilePatchRequest = {
   age_bracket?: "18-25" | "26-35" | "36-45" | "46-55" | "55+";
   location?: string;
   timezone?: string;
+  prefers_camera_off_3min?: boolean;
+  travel_region_code?: string | null;
 };
 
 const allowedAgeBrackets = new Set(["18-25", "26-35", "36-45", "46-55", "55+"]);
@@ -33,8 +35,14 @@ async function fetchProfile(authUserId: string): Promise<HttpResponseInit> {
         age_bracket,
         location,
         profession,
-        timezone
-      FROM dbo.users
+        timezone,
+        prefers_camera_off_3min,
+        u.travel_region_code,
+        tr.name AS travel_region_name,
+        tr.nation AS travel_region_nation
+      FROM dbo.users u
+      LEFT JOIN dbo.travel_regions tr
+        ON tr.code = u.travel_region_code
       WHERE id = @id AND is_active = 1;
     `);
 
@@ -91,9 +99,11 @@ export async function profile(
       const hasAgeBracket = Object.prototype.hasOwnProperty.call(body, "age_bracket");
       const hasLocation = Object.prototype.hasOwnProperty.call(body, "location");
       const hasTimezone = Object.prototype.hasOwnProperty.call(body, "timezone");
+      const hasCameraPreference = Object.prototype.hasOwnProperty.call(body, "prefers_camera_off_3min");
+      const hasTravelRegion = Object.prototype.hasOwnProperty.call(body, "travel_region_code");
 
-      if (!hasAgeBracket && !hasLocation && !hasTimezone) {
-        return badRequest("At least one of age_bracket, location, or timezone must be provided.");
+      if (!hasAgeBracket && !hasLocation && !hasTimezone && !hasCameraPreference && !hasTravelRegion) {
+        return badRequest("At least one of age_bracket, location, timezone, prefers_camera_off_3min, or travel_region_code must be provided.");
       }
 
       if (hasAgeBracket && body.age_bracket && !allowedAgeBrackets.has(body.age_bracket)) {
@@ -108,15 +118,50 @@ export async function profile(
         return badRequest("timezone must be a string.");
       }
 
+      if (hasCameraPreference && typeof body.prefers_camera_off_3min !== "boolean") {
+        return badRequest("prefers_camera_off_3min must be a boolean.");
+      }
+
+      if (
+        hasTravelRegion &&
+        body.travel_region_code !== null &&
+        typeof body.travel_region_code !== "string"
+      ) {
+        return badRequest("travel_region_code must be a string or null.");
+      }
+
+      const normalizedTravelRegionCode = hasTravelRegion && typeof body.travel_region_code === "string"
+        ? body.travel_region_code.trim().toUpperCase()
+        : body.travel_region_code ?? null;
+
       const pool = await getDbPool();
+
+      if (hasTravelRegion && normalizedTravelRegionCode) {
+        const travelRegionResult = await pool.request()
+          .input("code", sql.NVarChar(50), normalizedTravelRegionCode)
+          .query(`
+            SELECT TOP 1 code
+            FROM dbo.travel_regions
+            WHERE code = @code;
+          `);
+
+        if (!travelRegionResult.recordset[0]) {
+          return badRequest("travel_region_code is invalid.");
+        }
+      }
+
       await pool.request()
         .input("id", sql.UniqueIdentifier, authUserId)
         .input("has_age_bracket", sql.Bit, hasAgeBracket ? 1 : 0)
         .input("has_location", sql.Bit, hasLocation ? 1 : 0)
         .input("has_timezone", sql.Bit, hasTimezone ? 1 : 0)
+        .input("has_camera_preference", sql.Bit, hasCameraPreference ? 1 : 0)
+        .input("has_travel_region", sql.Bit, hasTravelRegion ? 1 : 0)
         .input("age_bracket", sql.NVarChar(20), hasAgeBracket ? body.age_bracket ?? null : null)
         .input("location", sql.NVarChar(150), hasLocation ? body.location?.trim() ?? null : null)
         .input("timezone", sql.NVarChar(100), hasTimezone ? body.timezone?.trim() ?? null : null)
+        .input("prefers_camera_off_3min", sql.Bit, hasCameraPreference ? body.prefers_camera_off_3min : null)
+        .input("travel_region_code", sql.NVarChar(50), hasTravelRegion ? normalizedTravelRegionCode : null)
         .query(`
           UPDATE dbo.users
           SET
@@ -134,6 +179,16 @@ export async function profile(
               WHEN @has_timezone = 1
                 THEN @timezone
               ELSE timezone
+            END,
+            prefers_camera_off_3min = CASE
+              WHEN @has_camera_preference = 1
+                THEN @prefers_camera_off_3min
+              ELSE prefers_camera_off_3min
+            END,
+            travel_region_code = CASE
+              WHEN @has_travel_region = 1
+                THEN @travel_region_code
+              ELSE travel_region_code
             END,
             updated_at = SYSUTCDATETIME()
           WHERE id = @id AND is_active = 1;

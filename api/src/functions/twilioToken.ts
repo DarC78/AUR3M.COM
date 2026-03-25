@@ -61,7 +61,8 @@ export async function twilioToken(
       .query(`
         SELECT TOP 1
           s.duration_seconds,
-          COALESCE(s.scheduled_at, s.created_at) AS starts_at
+          COALESCE(s.scheduled_at, s.created_at) AS starts_at,
+          s.camera_off
         FROM dbo.speed_round_sessions s
         INNER JOIN dbo.speed_round_participants pa
           ON pa.id = s.participant_a_id
@@ -72,7 +73,7 @@ export async function twilioToken(
       `);
 
     const session = sessionResult.recordset[0] as
-      | { duration_seconds: number; starts_at: Date }
+      | { duration_seconds: number; starts_at: Date; camera_off: boolean }
       | undefined;
 
     if (!session) {
@@ -112,7 +113,8 @@ export async function twilioToken(
       status: 200,
       jsonBody: {
         token,
-        room_name: roomName
+        room_name: roomName,
+        camera_off: session.camera_off
       }
     };
   } catch (error) {
