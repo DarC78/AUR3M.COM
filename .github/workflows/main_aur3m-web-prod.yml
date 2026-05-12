@@ -1,0 +1,31 @@
+name: Build and deploy AUR3M web frontend
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "web/**"
+      - ".github/workflows/main_aur3m-web-prod.yml"
+  workflow_dispatch:
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    name: Build and deploy
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_AUR3M_WEB_PROD }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: web
+          api_location: ""
+          output_location: dist
+        env:
+          VITE_API_BASE_URL: https://aur3m-api-prod-hyd2dccqf2gugjf5.ukwest-01.azurewebsites.net

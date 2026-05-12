@@ -5,8 +5,23 @@ Azure Functions + MSSQL backend for AUR3M.COM.
 ## Structure
 
 - `api/`: Azure Functions TypeScript app
+- `web/`: React/Vite frontend exported from Lovable and now hosted in-house
 - `database/`: MSSQL schema scripts
 - `docs/`: frontend integration and deployment notes
+
+## Frontend
+
+Local development:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Production Static Web App:
+
+`https://happy-bush-0c343fd03.7.azurestaticapps.net`
 
 ## Azure Function App
 
