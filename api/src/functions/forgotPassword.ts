@@ -108,7 +108,7 @@ export async function forgotPassword(
     return {
       status: 500,
       jsonBody: {
-        error: error instanceof Error ? error.message : "Unknown forgot password error"
+        error: "Password reset is temporarily unavailable. Please try again later."
       }
     };
   }
