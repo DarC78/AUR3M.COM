@@ -7,6 +7,12 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "api/**"
+      - "database/**"
+      - "docs/**"
+      - "AUR3M_Backend_API_Contract_v3.md"
+      - ".github/workflows/main_aur3m-api-prod.yml"
   workflow_dispatch:
 
 env:
