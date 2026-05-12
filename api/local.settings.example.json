@@ -1,0 +1,13 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "MSSQL_CONNECTION_STRING_AUR3M": "Server=tcp:YOUR_SQL_HOST,1433;Initial Catalog=AUR3M;User ID=YOUR_USER;Password=YOUR_PASSWORD;Encrypt=True;TrustServerCertificate=True;Connection Timeout=30;",
+    "JWT_SECRET_AUR3M": "replace-with-a-local-development-secret",
+    "RESEND_API_KEY": "",
+    "RESEND_FROM_EMAIL": "AUR3M <hello@aur3m.com>",
+    "PUBLIC_APP_URL": "http://127.0.0.1:8080",
+    "PUBLIC_API_URL": "http://127.0.0.1:7071"
+  }
+}
