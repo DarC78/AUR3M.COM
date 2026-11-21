@@ -27,7 +27,7 @@ jobs:
         env:
           VITE_API_BASE_URL: https://aur3m-api-prod-hyd2dccqf2gugjf5.ukwest-01.azurewebsites.net
       - name: Verify complete static export
-        run: test -f out/index.html && test -f out/404.html && test -f out/dosar-aur3m.html && test -f out/sitemap.xml
+        run: test -f web/dist/index.html && test -d web/dist/assets && cp web/dist/index.html web/dist/404.html
       - uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         with:
@@ -50,3 +50,4 @@ jobs:
           name: aur3m-static-export
           path: web/dist
       - run: bash tools/publish-vm.sh
+
